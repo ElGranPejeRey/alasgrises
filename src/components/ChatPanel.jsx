@@ -148,7 +148,7 @@ export default function ChatPanel({ variant = 'page' }) {
 
   function labelFor(message) {
     if (message.sender_id === user.id) return 'Tú'
-    if (mode === 'user') return 'Consejo'
+    if (mode === 'user') return 'Admin'
     if (activeConversation && message.sender_id === activeConversation.user_id) {
       return activeConversation.profiles?.username || 'Cazador'
     }
