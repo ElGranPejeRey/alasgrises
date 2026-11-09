@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import About from '../components/About'
 import Contact from '../components/Contact'
+import Staff from '../components/Staff'
 import Guides from '../components/Guides'
 import Hero from '../components/Hero'
 import VideoGallery from '../components/VideoGallery'
@@ -17,6 +18,7 @@ export default function Home() {
     <main>
       <Hero settings={settings} />
       <About settings={settings} />
+      <Staff settings={settings} />
       <VideoGallery />
       <Guides />
       <Contact settings={settings} />

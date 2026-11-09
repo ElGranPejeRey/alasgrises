@@ -10,6 +10,7 @@ const FIELDS = [
   ['hero_subtitle', 'Subtítulo del hero', true],
   ['about_title', 'Título de sobre nosotros', false],
   ['about_text', 'Descripción del gremio', true],
+  ['staff_intro', 'Introducción del staff', true],
   ['contact_email', 'Correo de contacto', false],
   ['discord_url', 'Enlace de Discord', false],
   ['footer_text', 'Frase del footer', true],

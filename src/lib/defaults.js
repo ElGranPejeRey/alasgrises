@@ -2,12 +2,14 @@ export const DEFAULTS = {
   hero_kicker: 'Gremio de Diablo IV',
   hero_title: 'ALAS GRISES',
   hero_subtitle: 'Ceniza, acero y una hermandad que no suelta la espada.',
-  about_title: 'Forjados entre el filo y la ceniza',
+  about_title: 'Una comunidad, una historia y un mismo destino.',
   about_text:
-    'Alas Grises es un gremio de Diablo IV forjado entre la ceniza y el acero. No buscamos una turba de paso: buscamos cazadores que se queden cuando el mapa se pone rojo.\n\nCompartimos builds, rutas de temporada y la espalda en cada jefe. El emblema es el pacto: dos alas grises, un filo al centro y un halo que no se apaga. Aquí las guías se leen con claridad y solo las descargan quienes forman parte del clan.\n\nSi quieres oficio en vez de ruido, ya estás delante de la puerta.',
+    'Bienvenidos, viajeros, guerreros y aventureros.\n\nAlas Grises nace como un espacio para quienes comparten la pasión por los mundos de fantasía, las grandes batallas y las aventuras que hacen de cada partida una experiencia memorable.\n\nSomos una comunidad de jugadores que busca mucho más que conquistar desafíos: queremos compartir experiencias, aprender unos de otros, formar nuevas amistades y construir un lugar donde todos puedan sentirse parte de algo.\n\nCreemos que un buen gremio no se mide únicamente por su poder, nivel o logros, sino también por las personas que lo conforman. Por eso, promovemos el respeto, la colaboración, la buena convivencia y el compañerismo.\n\nAquí cada integrante tiene un lugar, cada aporte cuenta y siempre habrá alguien dispuesto a echar una mano. No importa si eres un veterano de mil batallas o si recién comienzas tu aventura: lo importante es tener ganas de compartir y disfrutar el camino.',
   contact_email: '',
   discord_url: '',
   footer_text: 'La ceniza cubre el filo, no el pacto. Santuario no perdona, y nosotros no nos soltamos.',
+  staff_intro: 'Detrás de cada gran comunidad existe un grupo de personas que dedica tiempo, esfuerzo y compromiso para mantenerla viva.\n\nNuestro equipo de liderazgo y Staff tiene la misión de orientar, organizar, apoyar a los integrantes y velar por el buen funcionamiento de Alas Grises.\n\nA continuación, conocerás a las personas que forman parte de nuestro equipo y que trabajan día a día para hacer crecer esta comunidad.',
+  staff_members: 'Consejo | Dirección | Cuida el rumbo del gremio y que cada persona tenga un lugar.\nOficiales | Organización | Acompañan las partidas, comparten conocimiento y ayudan a quien empieza.\nModeración | Convivencia | Sostiene el respeto y no deja espacio para la toxicidad.',
 }
 
 const NARRATIVE = new Set([
@@ -17,7 +19,21 @@ const NARRATIVE = new Set([
   'about_title',
   'about_text',
   'footer_text',
+  'staff_intro',
+  'staff_members',
 ])
+
+export function parseStaff(value) {
+  return String(value || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [name, role, detail] = line.split('|').map((part) => part.trim())
+      return { name, role: role || 'Staff', detail: detail || '' }
+    })
+    .filter((member) => member.name)
+}
 
 export function text(settings, key) {
   const value = settings?.[key]

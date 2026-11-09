@@ -8,8 +8,15 @@ create table if not exists public.profiles (
   email text,
   username text not null,
   role text not null default 'user' check (role in ('admin', 'user')),
+  avatar_url text not null default '',
+  d4_class text not null default '',
+  battletag text not null default '',
   created_at timestamptz not null default now()
 );
+
+alter table public.profiles add column if not exists avatar_url text not null default '';
+alter table public.profiles add column if not exists d4_class text not null default '';
+alter table public.profiles add column if not exists battletag text not null default '';
 
 create table if not exists public.site_settings (
   key text primary key,
@@ -448,15 +455,27 @@ insert into public.site_settings (key, value) values
   ('hero_kicker', 'Gremio de Diablo IV'),
   ('hero_title', 'ALAS GRISES'),
   ('hero_subtitle', 'Ceniza, acero y una hermandad que no suelta la espada.'),
-  ('about_title', 'Forjados entre el filo y la ceniza'),
-  ('about_text', $about$Alas Grises es un gremio de Diablo IV forjado entre la ceniza y el acero. No buscamos una turba de paso: buscamos cazadores que se queden cuando el mapa se pone rojo.
+  ('about_title', 'Una comunidad, una historia y un mismo destino.'),
+  ('about_text', $about$Bienvenidos, viajeros, guerreros y aventureros.
 
-Compartimos builds, rutas de temporada y la espalda en cada jefe. El emblema es el pacto: dos alas grises, un filo al centro y un halo que no se apaga. Aquí las guías se leen con claridad y solo las descargan quienes forman parte del clan.
+Alas Grises nace como un espacio para quienes comparten la pasión por los mundos de fantasía, las grandes batallas y las aventuras que hacen de cada partida una experiencia memorable.
 
-Si quieres oficio en vez de ruido, ya estás delante de la puerta.$about$),
+Somos una comunidad de jugadores que busca mucho más que conquistar desafíos: queremos compartir experiencias, aprender unos de otros, formar nuevas amistades y construir un lugar donde todos puedan sentirse parte de algo.
+
+Creemos que un buen gremio no se mide únicamente por su poder, nivel o logros, sino también por las personas que lo conforman. Por eso, promovemos el respeto, la colaboración, la buena convivencia y el compañerismo.
+
+Aquí cada integrante tiene un lugar, cada aporte cuenta y siempre habrá alguien dispuesto a echar una mano. No importa si eres un veterano de mil batallas o si recién comienzas tu aventura: lo importante es tener ganas de compartir y disfrutar el camino.$about$),
   ('contact_email', ''),
   ('discord_url', ''),
-  ('footer_text', 'La ceniza cubre el filo, no el pacto. Santuario no perdona, y nosotros no nos soltamos.')
+  ('footer_text', 'La ceniza cubre el filo, no el pacto. Santuario no perdona, y nosotros no nos soltamos.'),
+  ('staff_intro', $staffintro$Detrás de cada gran comunidad existe un grupo de personas que dedica tiempo, esfuerzo y compromiso para mantenerla viva.
+
+Nuestro equipo de liderazgo y Staff tiene la misión de orientar, organizar, apoyar a los integrantes y velar por el buen funcionamiento de Alas Grises.
+
+A continuación, conocerás a las personas que forman parte de nuestro equipo y que trabajan día a día para hacer crecer esta comunidad.$staffintro$),
+  ('staff_members', $staff$Consejo | Dirección | Cuida el rumbo del gremio y que cada persona tenga un lugar.
+Oficiales | Organización | Acompañan las partidas, comparten conocimiento y ayudan a quien empieza.
+Moderación | Convivencia | Sostiene el respeto y no deja espacio para la toxicidad.$staff$)
 on conflict (key) do nothing;
 
 insert into public.videos (title, description, youtube_id, sort_order, published)

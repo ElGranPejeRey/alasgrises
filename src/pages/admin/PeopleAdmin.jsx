@@ -61,6 +61,9 @@ export default function PeopleAdmin({ onOpenMessages }) {
                 {person.id === user.id ? <Badge>Tú</Badge> : null}
               </div>
               <p className="mt-1 break-all text-sm text-steel">{person.email}</p>
+              {person.d4_class || person.battletag ? (
+                <p className="mt-1 text-sm text-[#ffb0a6]">{[person.d4_class, person.battletag].filter(Boolean).join(' · ')}</p>
+              ) : null}
               <p className="mt-1 text-xs uppercase tracking-[0.14em] text-mute">{formatDate(person.created_at)}</p>
             </div>
             <div className="flex flex-wrap gap-2">

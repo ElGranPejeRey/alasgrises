@@ -7,6 +7,7 @@ import { Button, IconClose, IconMenu } from './ui'
 const LINKS = [
   { href: '#inicio', id: 'inicio', label: 'Inicio' },
   { href: '#nosotros', id: 'nosotros', label: 'Sobre nosotros' },
+  { href: '#staff', id: 'staff', label: 'Staff' },
   { href: '#videos', id: 'videos', label: 'Galería de videos' },
   { href: '#guias', id: 'guias', label: 'Guías' },
   { href: '#contacto', id: 'contacto', label: 'Contacto' },

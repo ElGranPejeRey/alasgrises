@@ -5,6 +5,7 @@ import { text } from '../lib/defaults'
 const LINKS = [
   { href: '#inicio', label: 'Inicio' },
   { href: '#nosotros', label: 'Sobre nosotros' },
+  { href: '#staff', label: 'Staff' },
   { href: '#videos', label: 'Galería de videos' },
   { href: '#guias', label: 'Guías' },
   { href: '#contacto', label: 'Contacto' },
