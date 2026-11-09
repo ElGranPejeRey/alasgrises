@@ -7,6 +7,7 @@ const STEPS = [
   { id: 'contenido', title: 'Textos del clan', text: 'Ajusta el hero, la historia y el contacto.' },
   { id: 'guias', title: 'Guías', text: 'Súbelas. Se ven en la web y solo las descargan los registrados.' },
   { id: 'videos', title: 'Videos', text: 'Arma el carrusel con enlaces de YouTube o mp4.' },
+  { id: 'cazadores', title: 'Usuarios', text: 'Mira las cuentas registradas y cambia el rango a admin o usuario normal.' },
   { id: 'mensajes', title: 'Chat', text: 'Responde a los cazadores desde el mismo hilo.' },
 ]
 
@@ -42,7 +43,7 @@ export default function Overview({ onNavigate }) {
   const cards = [
     ['Guías', stats.guias],
     ['Videos', stats.videos],
-    ['Cazadores', stats.cazadores],
+    ['Usuarios', stats.cazadores],
     ['Chat sin leer', stats.chat],
     ['Contacto sin leer', stats.contacto],
   ]

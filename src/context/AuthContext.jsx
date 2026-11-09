@@ -13,7 +13,6 @@ export function AuthProvider({ children }) {
   const [recovery, setRecovery] = useState(false)
 
   const loadProfile = useCallback(async (userId) => {
-    setProfileReady(false)
     const first = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle()
     if (first.data) {
       setProfile(first.data)

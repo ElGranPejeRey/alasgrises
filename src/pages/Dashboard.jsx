@@ -21,7 +21,7 @@ const ADMIN_ITEMS = [
   ['guias', 'Guías'],
   ['videos', 'Videos'],
   ['contenido', 'Contenido'],
-  ['cazadores', 'Cazadores'],
+  ['cazadores', 'Usuarios'],
   ['contacto', 'Contacto'],
   ['mensajes', 'Mensajes'],
 ]
@@ -123,7 +123,7 @@ export default function Dashboard() {
     const authUpdate = await supabase.auth.updateUser({ data: sheet })
     if (authUpdate.error) {
       setSaving(false)
-      push(authUpdate.error.message || 'No se pudo guardar el perfil.', 'err')
+      push('No se pudo guardar el perfil.', 'err')
       return
     }
     let { error } = await supabase.from('profiles').update({ username: next, ...sheet }).eq('id', user.id)
