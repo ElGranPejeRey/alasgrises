@@ -80,19 +80,19 @@ export function safeFileName(name) {
     .slice(0, 80)
 }
 
-export async function downloadGuide(guide) {
-  const { data, error } = await supabase.storage.from('guides').createSignedUrl(guide.file_path, 180, {
-    download: guide.file_name || true,
-  })
-  if (error) throw error
-  supabase.rpc('increment_downloads', { guide_id: guide.id }).then(() => {}, () => {})
-  const link = document.createElement('a')
-  link.href = data.signedUrl
-  link.target = '_blank'
-  link.rel = 'noopener noreferrer'
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
+export function youtubeGuideId(filePath = '') {
+  if (!String(filePath).startsWith('youtube:')) return ''
+  return String(filePath).slice('youtube:'.length)
+}
+
+export async function guideVideoUrl(guide) {
+  const { data, error } = await supabase.storage.from('guides').createSignedUrl(guide.file_path, 60 * 60 * 3)
+  if (error || !data?.signedUrl) throw error || new Error('sin video')
+  return data.signedUrl
+}
+
+export function countGuideView(guideId) {
+  supabase.rpc('increment_downloads', { guide_id: guideId }).then(() => {}, () => {})
 }
 
 export function missingTable(error) {

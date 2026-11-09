@@ -50,6 +50,21 @@ create table if not exists public.videos (
   constraint videos_source_chk check (youtube_id is not null or video_url is not null)
 );
 
+create table if not exists public.streamers (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  twitch_login text not null,
+  twitch_url text not null,
+  sort_order integer not null default 0,
+  published boolean not null default true,
+  created_by uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint streamers_name_len check (char_length(name) between 2 and 40),
+  constraint streamers_login_chk check (twitch_login ~ '^[a-z0-9_]{3,25}$'),
+  constraint streamers_login_unique unique (twitch_login)
+);
+
 create table if not exists public.contact_messages (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -78,6 +93,7 @@ create table if not exists public.chat_messages (
 
 create index if not exists guides_published_idx on public.guides (published, created_at desc);
 create index if not exists videos_order_idx on public.videos (sort_order, created_at);
+create index if not exists streamers_order_idx on public.streamers (published, sort_order, created_at);
 create index if not exists chat_messages_conversation_idx on public.chat_messages (conversation_id, created_at);
 create index if not exists contact_messages_created_idx on public.contact_messages (created_at desc);
 
@@ -229,6 +245,7 @@ alter table public.profiles enable row level security;
 alter table public.site_settings enable row level security;
 alter table public.guides enable row level security;
 alter table public.videos enable row level security;
+alter table public.streamers enable row level security;
 alter table public.contact_messages enable row level security;
 alter table public.conversations enable row level security;
 alter table public.chat_messages enable row level security;
@@ -237,6 +254,7 @@ revoke all on table public.profiles from anon, authenticated;
 revoke all on table public.site_settings from anon, authenticated;
 revoke all on table public.guides from anon, authenticated;
 revoke all on table public.videos from anon, authenticated;
+revoke all on table public.streamers from anon, authenticated;
 revoke all on table public.contact_messages from anon, authenticated;
 revoke all on table public.conversations from anon, authenticated;
 revoke all on table public.chat_messages from anon, authenticated;
@@ -249,6 +267,8 @@ grant select (id, title, description, category, file_name, file_size, downloads,
 grant select, insert, update, delete on table public.guides to authenticated;
 grant select on table public.videos to anon, authenticated;
 grant insert, update, delete on table public.videos to authenticated;
+grant select on table public.streamers to anon, authenticated;
+grant insert, update, delete on table public.streamers to authenticated;
 grant insert on table public.contact_messages to anon, authenticated;
 grant select, update, delete on table public.contact_messages to authenticated;
 grant select, insert, update on table public.conversations to authenticated;
@@ -323,6 +343,27 @@ create policy "videos_update" on public.videos
 
 drop policy if exists "videos_delete" on public.videos;
 create policy "videos_delete" on public.videos
+  for delete to authenticated
+  using (public.is_admin());
+
+drop policy if exists "streamers_read" on public.streamers;
+create policy "streamers_read" on public.streamers
+  for select to anon, authenticated
+  using (published = true or public.is_admin());
+
+drop policy if exists "streamers_insert" on public.streamers;
+create policy "streamers_insert" on public.streamers
+  for insert to authenticated
+  with check (public.is_admin());
+
+drop policy if exists "streamers_update" on public.streamers;
+create policy "streamers_update" on public.streamers
+  for update to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+drop policy if exists "streamers_delete" on public.streamers;
+create policy "streamers_delete" on public.streamers
   for delete to authenticated
   using (public.is_admin());
 
@@ -441,7 +482,7 @@ do $$
 declare
   t text;
 begin
-  foreach t in array array['chat_messages', 'conversations', 'guides', 'videos', 'site_settings', 'contact_messages']
+  foreach t in array array['chat_messages', 'conversations', 'guides', 'videos', 'streamers', 'site_settings', 'contact_messages']
   loop
     begin
       execute format('alter publication supabase_realtime add table public.%I', t);
@@ -475,7 +516,32 @@ Nuestro equipo de liderazgo y Staff tiene la misión de orientar, organizar, apo
 A continuación, conocerás a las personas que forman parte de nuestro equipo y que trabajan día a día para hacer crecer esta comunidad.$staffintro$),
   ('staff_members', $staff$Consejo | Dirección | Cuida el rumbo del gremio y que cada persona tenga un lugar.
 Oficiales | Organización | Acompañan las partidas, comparten conocimiento y ayudan a quien empieza.
-Moderación | Convivencia | Sostiene el respeto y no deja espacio para la toxicidad.$staff$)
+Moderación | Convivencia | Sostiene el respeto y no deja espacio para la toxicidad.$staff$),
+  ('about_quote', 'Lo importante es tener ganas de compartir y disfrutar el camino.'),
+  ('philosophy_title', '🛡️ Nuestra filosofía'),
+  ('philosophy_items', $philosophy$Respeto | Tratamos a todos con cordialidad, sin importar su experiencia o nivel.
+Compañerismo | Nos apoyamos, compartimos conocimientos y avanzamos juntos.
+Colaboración | Creemos que una comunidad crece cuando todos aportan.
+Diversión | Jugamos para disfrutar, no para competir entre nosotros.
+Cero toxicidad | No hay espacio para egos, malos tratos ni dramas innecesarios.$philosophy$),
+  ('about_pillars', $pillars$Comunidad | Compartimos experiencias, aprendemos unos de otros y formamos nuevas amistades.
+Respeto | Promovemos la colaboración, la buena convivencia y el compañerismo.
+Compañerismo | Cada integrante tiene un lugar y siempre habrá alguien dispuesto a echar una mano.$pillars$),
+  ('staff_title', 'Quienes cuidan el gremio'),
+  ('staff_cards', $staffcards$Eryndor Vahl | Líder | Marca el rumbo del gremio y se asegura de que nadie quede fuera.
+Maera Sol | Oficial | Organiza las partidas y recibe a quien llega por primera vez.
+Kael Dravos | Estratega | Comparte rutas, builds y lo que cada temporada enseña.
+Liora Ash | Comunidad | Cuida las amistades y que cada aporte tenga un lugar.
+Thorne Vale | Moderación | Sostiene el respeto y no deja espacio para la toxicidad.$staffcards$),
+  ('videos_title', 'El archivo del clan'),
+  ('videos_text', 'Cinemáticas y piezas que el consejo deja en el carrusel. Pasa las alas, no te quedes en una sola llama.'),
+  ('guides_title', 'El grimorio abierto'),
+  ('guides_text', 'Las guías del gremio están en video. Sin cuenta se ve la ficha; el video completo se abre al registrarse.'),
+  ('contact_title', 'Habla con el consejo'),
+  ('contact_text', 'Escribe desde aquí si todavía no tienes cuenta. Quienes ya están en el gremio también pueden dejar un mensaje directo en el chat.'),
+  ('streaming_title', 'En vivo en Twitch'),
+  ('streaming_text', 'Los cazadores que transmiten aparecen aquí. El botón verde abre la transmisión; el rojo indica que están fuera de línea.'),
+  ('streamers', '')
 on conflict (key) do nothing;
 
 insert into public.videos (title, description, youtube_id, sort_order, published)
@@ -487,5 +553,31 @@ from (
     ('Lord of Hatred'::text, 'El odio tiene señor. Cinemática oficial de la expansión.'::text, 'Gpaz0etTqJw'::text, 3, true)
 ) as seed(title, description, youtube_id, sort_order, published)
 where not exists (select 1 from public.videos);
+
+insert into public.streamers (name, twitch_login, twitch_url, sort_order)
+select
+  case when char_length(raw_name) between 2 and 40 then raw_name else twitch_login end,
+  twitch_login,
+  'https://www.twitch.tv/' || twitch_login,
+  row_number() over (order by ord)::integer
+from (
+  select
+    ord,
+    left(trim(case when position('|' in line) > 0 then split_part(line, '|', 1) else '' end), 40) as raw_name,
+    lower(split_part(split_part(regexp_replace(regexp_replace(
+      case when position('|' in line) > 0 then trim(split_part(line, '|', 2)) else line end,
+      '^@', ''), '^https?://(www\.)?([^/]*twitch\.tv/)?', '', 'i'), '/', 1), '?', 1)) as twitch_login
+  from (
+    select trim(item) as line, ordinality as ord
+    from public.site_settings as settings
+    cross join lateral regexp_split_to_table(coalesce(settings.value, ''), E'\n') with ordinality as pieces(item, ordinality)
+    where settings.key = 'streamers'
+  ) as lines
+  where line <> ''
+) as parsed
+where twitch_login ~ '^[a-z0-9_]{3,25}$'
+  and not exists (
+    select 1 from public.streamers as existing where existing.twitch_login = parsed.twitch_login
+  );
 
 notify pgrst, 'reload schema';

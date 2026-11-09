@@ -7,6 +7,7 @@ const LINKS = [
   { href: '#nosotros', label: 'Sobre nosotros' },
   { href: '#staff', label: 'Staff' },
   { href: '#videos', label: 'Galería de videos' },
+  { href: '#streaming', label: 'Streaming' },
   { href: '#guias', label: 'Guías' },
   { href: '#contacto', label: 'Contacto' },
 ]

@@ -1,4 +1,4 @@
-import { text } from '../lib/defaults'
+import { parseStaff, text } from '../lib/defaults'
 import { cx } from '../lib/format'
 
 const CARDS = [
@@ -37,19 +37,27 @@ const CARDS = [
 
 export default function Staff({ settings }) {
   const intro = text(settings, 'staff_intro').split(/\n\n+/).filter(Boolean)
+  const saved = parseStaff(text(settings, 'staff_cards'))
+  const cards = (saved.length ? saved : CARDS.map((card) => ({ name: card.name, role: card.role, detail: card.text }))).map((card, index) => ({
+    name: card.name,
+    role: card.role,
+    text: card.detail,
+    image: CARDS[index % CARDS.length].image,
+    featured: index === 0,
+  }))
 
   return (
     <section id="staff" className="scroll-mt-24 px-4 py-16 sm:px-6 sm:py-24">
       <div className="mx-auto max-w-6xl">
         <p className="font-display text-[11px] uppercase tracking-[0.35em] text-[#ff6a5a]">Staff</p>
-        <h2 className="mt-3 max-w-3xl font-display text-3xl leading-tight text-silver sm:text-4xl">Quienes cuidan el gremio</h2>
+        <h2 className="mt-3 max-w-3xl font-display text-3xl leading-tight text-silver sm:text-4xl">{text(settings, 'staff_title')}</h2>
         <div className="mt-5 max-w-3xl space-y-4 text-base leading-relaxed text-steel">
           {intro.map((paragraph) => (
             <p key={paragraph.slice(0, 32)}>{paragraph}</p>
           ))}
         </div>
         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-12">
-          {CARDS.map((card) => (
+          {cards.map((card) => (
             <article
               key={card.name}
               className={cx(

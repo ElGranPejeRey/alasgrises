@@ -4,6 +4,7 @@ import Contact from '../components/Contact'
 import Staff from '../components/Staff'
 import Guides from '../components/Guides'
 import Hero from '../components/Hero'
+import Streaming from '../components/Streaming'
 import VideoGallery from '../components/VideoGallery'
 import { useSettings } from '../context/SettingsContext'
 
@@ -19,8 +20,9 @@ export default function Home() {
       <Hero settings={settings} />
       <About settings={settings} />
       <Staff settings={settings} />
-      <VideoGallery />
-      <Guides />
+      <VideoGallery settings={settings} />
+      <Streaming settings={settings} />
+      <Guides settings={settings} />
       <Contact settings={settings} />
     </main>
   )

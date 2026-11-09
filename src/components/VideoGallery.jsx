@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { text } from '../lib/defaults'
 import { cx, missingTable } from '../lib/format'
 import { supabase } from '../lib/supabase'
 import { Empty, SectionHeading, Skeleton } from './ui'
 
-export default function VideoGallery() {
+export default function VideoGallery({ settings = {} }) {
   const [videos, setVideos] = useState([])
   const [index, setIndex] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -59,8 +60,8 @@ export default function VideoGallery() {
       <div className="mx-auto max-w-6xl">
         <SectionHeading
           kicker="Galería de videos"
-          title="El archivo del clan"
-          text="Cinemáticas y piezas que el consejo deja en el carrusel. Pasa las alas, no te quedes en una sola llama."
+          title={text(settings, 'videos_title')}
+          text={text(settings, 'videos_text')}
         />
 
         <div className="mt-10">

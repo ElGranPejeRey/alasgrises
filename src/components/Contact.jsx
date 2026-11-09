@@ -62,8 +62,8 @@ export default function Contact({ settings }) {
         <div>
           <SectionHeading
             kicker="Contacto"
-            title="Habla con el consejo"
-            text="Escribe desde aquí si todavía no tienes cuenta. Quienes ya están en el gremio también pueden dejar un mensaje directo en el chat."
+            title={text(settings, 'contact_title')}
+            text={text(settings, 'contact_text')}
           />
           <Frame className="mt-8 space-y-4 p-5">
             <div>

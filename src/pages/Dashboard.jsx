@@ -13,6 +13,7 @@ import ContentAdmin from './admin/ContentAdmin'
 import GuideAdmin from './admin/GuideAdmin'
 import Overview from './admin/Overview'
 import PeopleAdmin from './admin/PeopleAdmin'
+import StreamAdmin from './admin/StreamAdmin'
 import VideoAdmin from './admin/VideoAdmin'
 
 const ADMIN_ITEMS = [
@@ -20,6 +21,7 @@ const ADMIN_ITEMS = [
   ['perfil', 'Perfil'],
   ['guias', 'Guías'],
   ['videos', 'Videos'],
+  ['streaming', 'Streaming'],
   ['contenido', 'Contenido'],
   ['cazadores', 'Usuarios'],
   ['contacto', 'Contacto'],
@@ -158,6 +160,7 @@ export default function Dashboard() {
   if (isAdmin && section === 'resumen') content = <Overview onNavigate={setSection} />
   if (isAdmin && section === 'guias') content = <GuideAdmin />
   if (isAdmin && section === 'videos') content = <VideoAdmin />
+  if (isAdmin && section === 'streaming') content = <StreamAdmin />
   if (isAdmin && section === 'contenido') content = <ContentAdmin />
   if (isAdmin && section === 'cazadores') content = <PeopleAdmin onOpenMessages={() => setSection('mensajes')} />
   if (isAdmin && section === 'contacto') content = <ContactAdmin />

@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
-import { cx, downloadGuide, formatBytes, formatDate, missingTable } from '../lib/format'
+import { text } from '../lib/defaults'
+import { countGuideView, cx, formatBytes, formatDate, guideVideoUrl, missingTable, youtubeGuideId } from '../lib/format'
 import { supabase } from '../lib/supabase'
-import { Badge, Button, Empty, Frame, SectionHeading, Skeleton } from './ui'
+import { Badge, Empty, Frame, SectionHeading, Skeleton } from './ui'
 
 const PUBLIC_COLUMNS = 'id,title,description,category,file_name,file_size,downloads,created_at'
 const MEMBER_COLUMNS = `${PUBLIC_COLUMNS},file_path`
 
-export default function Guides({ variant = 'page' }) {
+export default function Guides({ settings = {}, variant = 'page' }) {
   const { user, openAuth } = useAuth()
   const push = useToast()
   const [guides, setGuides] = useState([])
@@ -16,7 +17,6 @@ export default function Guides({ variant = 'page' }) {
   const [failed, setFailed] = useState(false)
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('Todas')
-  const [busyId, setBusyId] = useState(null)
 
   useEffect(() => {
     let cancel = false
@@ -57,23 +57,10 @@ export default function Guides({ variant = 'page' }) {
     return matchesCategory && haystack.includes(query.trim().toLowerCase())
   })
 
-  async function onDownload(guide) {
-    if (!user) {
-      openAuth('register')
-      return
-    }
-    setBusyId(guide.id)
-    try {
-      await downloadGuide(guide)
-      setGuides((current) => current.map((item) => (
-        item.id === guide.id ? { ...item, downloads: (item.downloads || 0) + 1 } : item
-      )))
-      push('La descarga comenzó.')
-    } catch {
-      push('No se pudo descargar. Entra con tu cuenta e inténtalo de nuevo.', 'err')
-    } finally {
-      setBusyId(null)
-    }
+  function onView(guideId) {
+    setGuides((current) => current.map((item) => (
+      item.id === guideId ? { ...item, downloads: (item.downloads || 0) + 1 } : item
+    )))
   }
 
   const body = (
@@ -118,7 +105,7 @@ export default function Guides({ variant = 'page' }) {
         <div className="mt-8">
           <Empty
             title="Todavía no hay guías"
-            text="Cuando el consejo publique una, se verá aquí. La descarga queda reservada a quienes se registran."
+            text="Cuando el consejo publique un video, se verá aquí. Solo una cuenta registrada puede verlo completo."
           />
         </div>
       ) : null}
@@ -132,20 +119,26 @@ export default function Guides({ variant = 'page' }) {
       {visible.length > 0 ? (
         <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {visible.map((guide) => (
-            <Frame key={guide.id} className="flex flex-col p-5">
-              <div className="flex items-start justify-between gap-3">
-                <Badge tone="fire">{guide.category || 'General'}</Badge>
-                <span className="text-[11px] uppercase tracking-[0.14em] text-mute">{formatDate(guide.created_at)}</span>
+            <Frame key={guide.id} className="flex flex-col overflow-hidden">
+              <GuidePlayer
+                guide={guide}
+                locked={!user}
+                onNeedAccount={() => openAuth('register')}
+                onView={() => onView(guide.id)}
+                onError={() => push('No se pudo abrir el video. Entra con tu cuenta e inténtalo de nuevo.', 'err')}
+              />
+              <div className="flex flex-1 flex-col p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <Badge tone="fire">{guide.category || 'General'}</Badge>
+                  <span className="text-[11px] uppercase tracking-[0.14em] text-mute">{formatDate(guide.created_at)}</span>
+                </div>
+                <h3 className="mt-4 font-display text-2xl leading-tight text-silver">{guide.title}</h3>
+                <p className="mt-3 flex-1 text-sm leading-relaxed text-steel">{guide.description}</p>
+                <div className="mt-4 flex items-center justify-between text-xs uppercase tracking-[0.14em] text-mute">
+                  <span>{formatBytes(guide.file_size) || 'Video'}</span>
+                  <span>{guide.downloads || 0} vistas</span>
+                </div>
               </div>
-              <h3 className="mt-4 font-display text-2xl leading-tight text-silver">{guide.title}</h3>
-              <p className="mt-3 flex-1 text-sm leading-relaxed text-steel">{guide.description}</p>
-              <div className="mt-4 flex items-center justify-between text-xs uppercase tracking-[0.14em] text-mute">
-                <span>{formatBytes(guide.file_size) || guide.file_name}</span>
-                <span>{guide.downloads || 0} descargas</span>
-              </div>
-              <Button className="mt-5 w-full" disabled={busyId === guide.id} onClick={() => onDownload(guide)}>
-                {busyId === guide.id ? 'Preparando…' : user ? 'Descargar' : 'Regístrate para descargar'}
-              </Button>
             </Frame>
           ))}
         </div>
@@ -158,7 +151,7 @@ export default function Guides({ variant = 'page' }) {
       <div>
         <h2 className="font-display text-3xl text-silver">Guías del clan</h2>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-steel">
-          Estás dentro. Desde aquí puedes bajar cada archivo que el consejo haya publicado.
+          Estás dentro. Desde aquí puedes ver completo cada video que el consejo haya publicado.
         </p>
         {body}
       </div>
@@ -170,11 +163,87 @@ export default function Guides({ variant = 'page' }) {
       <div className="mx-auto max-w-6xl">
         <SectionHeading
           kicker="Guías"
-          title="El grimorio abierto"
-          text="Todas las guías del gremio se muestran aquí. El archivo solo se descarga con una cuenta registrada."
+          title={text(settings, 'guides_title')}
+          text={text(settings, 'guides_text')}
         />
         {body}
       </div>
     </section>
+  )
+}
+
+function GuidePlayer({ guide, locked, onNeedAccount, onView, onError }) {
+  const [url, setUrl] = useState('')
+  const [youtubeId, setYoutubeId] = useState('')
+  const [busy, setBusy] = useState(false)
+  const counted = useRef(false)
+
+  function markView() {
+    if (counted.current) return
+    counted.current = true
+    countGuideView(guide.id)
+    onView()
+  }
+
+  async function open() {
+    if (locked) {
+      onNeedAccount()
+      return
+    }
+    const linked = youtubeGuideId(guide.file_path)
+    if (linked) {
+      setYoutubeId(linked)
+      markView()
+      return
+    }
+    if (!guide.file_path) {
+      onError()
+      return
+    }
+    setBusy(true)
+    try {
+      setUrl(await guideVideoUrl(guide))
+    } catch {
+      onError()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (youtubeId) {
+    return (
+      <iframe
+        src={`https://www.youtube-nocookie.com/embed/${youtubeId}?rel=0&autoplay=1`}
+        title={guide.title}
+        className="aspect-video w-full bg-black"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+      />
+    )
+  }
+
+  if (url) {
+    return (
+      <video
+        src={url}
+        controls
+        autoPlay
+        playsInline
+        className="aspect-video w-full bg-black"
+        onPlay={markView}
+      />
+    )
+  }
+
+  return (
+    <button type="button" onClick={open} className="relative grid aspect-video w-full place-items-center overflow-hidden bg-black text-center">
+      <span className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(157,28,46,0.5),transparent_58%)]" />
+      <span className="relative px-4">
+        <span className="mx-auto grid h-14 w-14 place-items-center border border-[#ff4536] font-display text-lg text-white">▶</span>
+        <span className="mt-3 block text-[11px] uppercase tracking-[0.16em] text-[#ffb0a6]">
+          {locked ? 'Regístrate para verlo completo' : busy ? 'Abriendo…' : 'Ver video completo'}
+        </span>
+      </span>
+    </button>
   )
 }

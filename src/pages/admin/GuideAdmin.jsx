@@ -2,18 +2,17 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
 import { CATEGORIES } from '../../lib/defaults'
-import { formatBytes, formatDate, safeFileName } from '../../lib/format'
+import { formatDate, parseVideoInput, youtubeGuideId } from '../../lib/format'
 import { supabase } from '../../lib/supabase'
 import { Badge, Button, Field, Frame, SelectField, TextArea } from '../../components/ui'
 
-const EMPTY = { title: '', description: '', category: 'General', published: true }
+const EMPTY = { title: '', description: '', category: 'General', youtube: '', published: true }
 
 export default function GuideAdmin() {
   const { user } = useAuth()
   const push = useToast()
   const [guides, setGuides] = useState([])
   const [form, setForm] = useState(EMPTY)
-  const [file, setFile] = useState(null)
   const [editing, setEditing] = useState(null)
   const [busy, setBusy] = useState(false)
   const [pendingDelete, setPendingDelete] = useState(null)
@@ -33,11 +32,12 @@ export default function GuideAdmin() {
 
   function edit(guide) {
     setEditing(guide.id)
-    setFile(null)
+    const youtubeId = youtubeGuideId(guide.file_path)
     setForm({
       title: guide.title,
       description: guide.description || '',
       category: guide.category || 'General',
+      youtube: youtubeId ? `https://www.youtube.com/watch?v=${youtubeId}` : '',
       published: guide.published,
     })
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -45,7 +45,6 @@ export default function GuideAdmin() {
 
   function reset() {
     setEditing(null)
-    setFile(null)
     setForm(EMPTY)
   }
 
@@ -55,59 +54,36 @@ export default function GuideAdmin() {
       push('La guía necesita un título.', 'err')
       return
     }
-    if (!editing && !file) {
-      push('Adjunta el archivo de la guía.', 'err')
-      return
-    }
-    if (file && file.size > 20 * 1024 * 1024) {
-      push('El archivo supera los 20 MB.', 'err')
+    const parsed = parseVideoInput(form.youtube)
+    if (!parsed?.youtube_id) {
+      push('Pega un enlace de YouTube válido.', 'err')
       return
     }
     setBusy(true)
-    let filePath
-    let fileName
-    let fileSize
-    if (file) {
-      fileName = safeFileName(file.name)
-      filePath = `${crypto.randomUUID()}-${fileName}`
-      const uploaded = await supabase.storage.from('guides').upload(filePath, file, {
-        contentType: file.type || 'application/octet-stream',
-        upsert: false,
-      })
-      if (uploaded.error) {
-        setBusy(false)
-        push('No se pudo subir el archivo.', 'err')
-        return
-      }
-      fileSize = file.size
-    }
-
     const payload = {
       title: form.title.trim(),
       description: form.description.trim(),
       category: form.category,
       published: form.published,
+      file_path: `youtube:${parsed.youtube_id}`,
+      file_name: 'YouTube',
+      file_size: 0,
     }
-    if (file) {
-      payload.file_path = filePath
-      payload.file_name = fileName
-      payload.file_size = fileSize
-    }
-
     const result = editing
       ? await supabase.from('guides').update(payload).eq('id', editing)
       : await supabase.from('guides').insert({ ...payload, created_by: user.id })
 
     if (result.error) {
-      if (filePath) await supabase.storage.from('guides').remove([filePath])
       setBusy(false)
       push(result.error.message || 'No se pudo guardar la guía.', 'err')
       return
     }
 
-    if (editing && file) {
+    if (editing) {
       const previous = guides.find((guide) => guide.id === editing)
-      if (previous?.file_path) await supabase.storage.from('guides').remove([previous.file_path])
+      if (previous?.file_path && !youtubeGuideId(previous.file_path)) {
+        await supabase.storage.from('guides').remove([previous.file_path])
+      }
     }
 
     setBusy(false)
@@ -131,7 +107,7 @@ export default function GuideAdmin() {
       push('No se pudo borrar la guía.', 'err')
       return
     }
-    if (guide.file_path) await supabase.storage.from('guides').remove([guide.file_path])
+    if (guide.file_path && !youtubeGuideId(guide.file_path)) await supabase.storage.from('guides').remove([guide.file_path])
     setPendingDelete(null)
     if (editing === guide.id) reset()
     push('Guía eliminada.')
@@ -142,7 +118,7 @@ export default function GuideAdmin() {
     <div>
       <h2 className="font-display text-3xl text-silver">Guías</h2>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-steel">
-        El título y la descripción se ven en la web. El archivo solo lo descarga un usuario registrado.
+        Pega el enlace de YouTube. Quien visita la web ve el título, y el video completo solo se reproduce con una cuenta registrada.
       </p>
 
       <Frame className="mt-6 p-5">
@@ -154,21 +130,19 @@ export default function GuideAdmin() {
             </SelectField>
           </div>
           <TextArea label="Descripción" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} maxLength={1200} />
-          <label className="block cursor-pointer border border-dashed border-white/20 bg-white/[0.03] px-4 py-8 text-center hover:border-[#ff4536]/70">
-            <input
-              type="file"
-              className="sr-only"
-              accept=".pdf,.zip,.png,.jpg,.jpeg,.webp,.txt,.docx,application/pdf"
-              onChange={(event) => setFile(event.target.files?.[0] || null)}
-            />
-            <span className="text-sm text-steel">{file ? file.name : editing ? 'Cambiar archivo (opcional)' : 'Elegir PDF, ZIP, imagen o documento'}</span>
-          </label>
+          <Field
+            label="Enlace de YouTube"
+            value={form.youtube}
+            onChange={(event) => setForm({ ...form, youtube: event.target.value })}
+            placeholder="https://www.youtube.com/watch?v=..."
+            required
+          />
           <label className="flex items-center gap-2 text-sm text-steel">
             <input type="checkbox" checked={form.published} onChange={(event) => setForm({ ...form, published: event.target.checked })} />
             Visible en la web
           </label>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Button type="submit" disabled={busy}>{busy ? 'Guardando…' : editing ? 'Guardar cambios' : 'Publicar guía'}</Button>
+            <Button type="submit" disabled={busy}>{busy ? 'Guardando…' : editing ? 'Guardar cambios' : 'Publicar video'}</Button>
             {editing ? <Button variant="ghost" onClick={reset}>Cancelar edición</Button> : null}
           </div>
         </form>
@@ -186,7 +160,7 @@ export default function GuideAdmin() {
                 <h3 className="mt-3 font-display text-2xl text-silver">{guide.title}</h3>
                 <p className="mt-2 text-sm text-steel">{guide.description}</p>
                 <p className="mt-2 text-xs uppercase tracking-[0.14em] text-mute">
-                  {guide.file_name} · {formatBytes(guide.file_size)} · {guide.downloads} descargas · {formatDate(guide.created_at)}
+                  YouTube · {guide.downloads || 0} vistas · {formatDate(guide.created_at)}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -204,7 +178,7 @@ export default function GuideAdmin() {
             </div>
           </Frame>
         ))}
-        {guides.length === 0 ? <p className="text-sm text-mute">Todavía no subes ninguna guía.</p> : null}
+        {guides.length === 0 ? <p className="text-sm text-mute">Todavía no hay videos de guías.</p> : null}
       </div>
     </div>
   )
