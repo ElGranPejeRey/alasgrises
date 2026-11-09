@@ -1,9 +1,9 @@
 import { useEffect } from 'react'
 import About from '../components/About'
-import Contact from '../components/Contact'
 import Staff from '../components/Staff'
 import Guides from '../components/Guides'
 import Hero from '../components/Hero'
+import PhotoGallery from '../components/PhotoGallery'
 import Streaming from '../components/Streaming'
 import VideoGallery from '../components/VideoGallery'
 import { useSettings } from '../context/SettingsContext'
@@ -21,9 +21,9 @@ export default function Home() {
       <About settings={settings} />
       <Staff settings={settings} />
       <VideoGallery settings={settings} />
+      <PhotoGallery settings={settings} />
       <Streaming settings={settings} />
       <Guides settings={settings} />
-      <Contact settings={settings} />
     </main>
   )
 }

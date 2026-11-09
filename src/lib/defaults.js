@@ -24,6 +24,8 @@ export const DEFAULTS = {
   contact_text: 'Escribe desde aquí si todavía no tienes cuenta. Quienes ya están en el gremio también pueden dejar un mensaje directo en el chat.',
   streaming_title: 'En vivo en Twitch',
   streaming_text: 'Los cazadores que transmiten aparecen aquí. El botón verde abre la transmisión; el rojo indica que están fuera de línea.',
+  photos_title: 'El álbum del clan',
+  photos_text: 'Las fotos se ven pequeñas. Pulsa una para verla en grande y pasa a la siguiente con las flechas.',
   streamers: '',
 }
 
@@ -50,6 +52,8 @@ const NARRATIVE = new Set([
   'contact_text',
   'streaming_title',
   'streaming_text',
+  'photos_title',
+  'photos_text',
 ])
 
 export function twitchLogin(value) {

@@ -16,6 +16,7 @@ export default function PeopleAdmin({ onOpenMessages }) {
   const [people, setPeople] = useState([])
   const [openId, setOpenId] = useState(null)
   const [savingId, setSavingId] = useState(null)
+  const [pendingDelete, setPendingDelete] = useState(null)
 
   async function load() {
     const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: true })
@@ -45,6 +46,24 @@ export default function PeopleAdmin({ onOpenMessages }) {
     push(role === 'admin' ? `${person.username} ahora es admin.` : `${person.username} ahora es usuario normal.`)
     setOpenId(null)
     if (person.id === user.id) await refreshProfile()
+    load()
+  }
+
+  async function remove(person) {
+    setSavingId(person.id)
+    const { error } = await supabase.rpc('delete_clan_user', { target_id: person.id })
+    setSavingId(null)
+    if (error) {
+      const message = error.message || ''
+      if (message.includes('administrador')) push('Debe quedar al menos un administrador.', 'err')
+      else if (message.includes('ti mismo')) push('No puedes eliminarte a ti mismo.', 'err')
+      else if (message.includes('delete_clan_user') || message.includes('schema cache')) push('Falta ejecutar el script de borrado en Supabase.', 'err')
+      else push('No se pudo eliminar al usuario.', 'err')
+      return
+    }
+    setPendingDelete(null)
+    setOpenId(null)
+    push(`${person.username} fue eliminado.`)
     load()
   }
 
@@ -93,6 +112,23 @@ export default function PeopleAdmin({ onOpenMessages }) {
                   <Button variant="steel" onClick={() => setOpenId(open ? null : person.id)} disabled={savingId === person.id}>
                     {savingId === person.id ? 'Guardando…' : 'Cambiar rango'}
                   </Button>
+                  {person.id !== user.id ? (
+                    pendingDelete === person.id ? (
+                      <>
+                        <Button variant="danger" disabled={savingId === person.id} onClick={() => remove(person)}>Confirmar</Button>
+                        <Button variant="ghost" onClick={() => setPendingDelete(null)}>No</Button>
+                      </>
+                    ) : (
+                      <Button variant="danger" className="px-3" aria-label={`Eliminar a ${person.username}`} onClick={() => setPendingDelete(person.id)}>
+                        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                          <path d="M4 7h16" />
+                          <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                          <path d="M8 7l1 13h6l1-13" />
+                          <path d="M10 11v6M14 11v6" />
+                        </svg>
+                      </Button>
+                    )
+                  ) : null}
                 </div>
               </div>
               {open ? (

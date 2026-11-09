@@ -7,9 +7,9 @@ const LINKS = [
   { href: '#nosotros', label: 'Sobre nosotros' },
   { href: '#staff', label: 'Staff' },
   { href: '#videos', label: 'Galería de videos' },
+  { href: '#fotos', label: 'Fotos' },
   { href: '#streaming', label: 'Streaming' },
   { href: '#guias', label: 'Guías' },
-  { href: '#contacto', label: 'Contacto' },
 ]
 
 export default function Footer() {
@@ -43,7 +43,7 @@ export default function Footer() {
         <div>
           <p className="font-display text-xs uppercase tracking-[0.28em] text-[#ff8d80]">Consejo</p>
           <div className="mt-4 space-y-2 text-sm text-steel">
-            {email ? <a className="block hover:text-white" href={`mailto:${email}`}>{email}</a> : <p>Formulario de contacto abierto.</p>}
+            {email ? <a className="block hover:text-white" href={`mailto:${email}`}>{email}</a> : null}
             {discord.startsWith('http') ? (
               <a className="block text-[#ffb0a6] hover:text-white" href={discord} target="_blank" rel="noreferrer">Discord del gremio</a>
             ) : null}

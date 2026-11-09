@@ -65,6 +65,27 @@ create table if not exists public.streamers (
   constraint streamers_login_unique unique (twitch_login)
 );
 
+create table if not exists public.photos (
+  id uuid primary key default gen_random_uuid(),
+  title text not null default '',
+  caption text not null default '',
+  storage_path text not null,
+  sort_order integer not null default 0,
+  published boolean not null default true,
+  created_by uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now(),
+  constraint photos_title_len check (char_length(title) <= 80),
+  constraint photos_caption_len check (char_length(caption) <= 240)
+);
+
+create table if not exists public.avatars (
+  slug text primary key,
+  class_name text not null,
+  title text not null,
+  image_path text not null,
+  sort_order integer not null default 0
+);
+
 create table if not exists public.contact_messages (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -94,6 +115,7 @@ create table if not exists public.chat_messages (
 create index if not exists guides_published_idx on public.guides (published, created_at desc);
 create index if not exists videos_order_idx on public.videos (sort_order, created_at);
 create index if not exists streamers_order_idx on public.streamers (published, sort_order, created_at);
+create index if not exists photos_order_idx on public.photos (published, sort_order, created_at);
 create index if not exists chat_messages_conversation_idx on public.chat_messages (conversation_id, created_at);
 create index if not exists contact_messages_created_idx on public.contact_messages (created_at desc);
 
@@ -150,6 +172,30 @@ begin
     new.email := old.email;
   end if;
   return new;
+end;
+$$;
+
+create or replace function public.delete_clan_user(target_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null or not public.is_admin() then
+    raise exception 'no autorizado';
+  end if;
+  if target_id = auth.uid() then
+    raise exception 'no puedes eliminarte a ti mismo';
+  end if;
+  if not exists (select 1 from public.profiles where id = target_id) then
+    raise exception 'ese usuario no existe';
+  end if;
+  if (select role from public.profiles where id = target_id) = 'admin'
+     and (select count(*) from public.profiles where role = 'admin' and id <> target_id) = 0 then
+    raise exception 'debe quedar al menos un administrador';
+  end if;
+  delete from auth.users where id = target_id;
 end;
 $$;
 
@@ -246,6 +292,8 @@ alter table public.site_settings enable row level security;
 alter table public.guides enable row level security;
 alter table public.videos enable row level security;
 alter table public.streamers enable row level security;
+alter table public.photos enable row level security;
+alter table public.avatars enable row level security;
 alter table public.contact_messages enable row level security;
 alter table public.conversations enable row level security;
 alter table public.chat_messages enable row level security;
@@ -255,6 +303,8 @@ revoke all on table public.site_settings from anon, authenticated;
 revoke all on table public.guides from anon, authenticated;
 revoke all on table public.videos from anon, authenticated;
 revoke all on table public.streamers from anon, authenticated;
+revoke all on table public.photos from anon, authenticated;
+revoke all on table public.avatars from anon, authenticated;
 revoke all on table public.contact_messages from anon, authenticated;
 revoke all on table public.conversations from anon, authenticated;
 revoke all on table public.chat_messages from anon, authenticated;
@@ -269,6 +319,9 @@ grant select on table public.videos to anon, authenticated;
 grant insert, update, delete on table public.videos to authenticated;
 grant select on table public.streamers to anon, authenticated;
 grant insert, update, delete on table public.streamers to authenticated;
+grant select on table public.photos to anon, authenticated;
+grant insert, update, delete on table public.photos to authenticated;
+grant select on table public.avatars to anon, authenticated;
 grant insert on table public.contact_messages to anon, authenticated;
 grant select, update, delete on table public.contact_messages to authenticated;
 grant select, insert, update on table public.conversations to authenticated;
@@ -276,6 +329,8 @@ grant select, insert, update on table public.chat_messages to authenticated;
 
 grant execute on function public.is_admin() to anon, authenticated;
 grant execute on function public.increment_downloads(uuid) to authenticated;
+revoke all on function public.delete_clan_user(uuid) from public, anon;
+grant execute on function public.delete_clan_user(uuid) to authenticated;
 
 drop policy if exists "profiles_select" on public.profiles;
 create policy "profiles_select" on public.profiles
@@ -366,6 +421,32 @@ drop policy if exists "streamers_delete" on public.streamers;
 create policy "streamers_delete" on public.streamers
   for delete to authenticated
   using (public.is_admin());
+
+drop policy if exists "photos_read" on public.photos;
+create policy "photos_read" on public.photos
+  for select to anon, authenticated
+  using (published = true or public.is_admin());
+
+drop policy if exists "photos_insert" on public.photos;
+create policy "photos_insert" on public.photos
+  for insert to authenticated
+  with check (public.is_admin());
+
+drop policy if exists "photos_update" on public.photos;
+create policy "photos_update" on public.photos
+  for update to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+drop policy if exists "photos_delete" on public.photos;
+create policy "photos_delete" on public.photos
+  for delete to authenticated
+  using (public.is_admin());
+
+drop policy if exists "avatars_read" on public.avatars;
+create policy "avatars_read" on public.avatars
+  for select to anon, authenticated
+  using (true);
 
 drop policy if exists "contact_insert" on public.contact_messages;
 create policy "contact_insert" on public.contact_messages
@@ -478,11 +559,36 @@ create policy "guides_storage_delete" on storage.objects
   for delete to authenticated
   using (bucket_id = 'guides' and public.is_admin());
 
+insert into storage.buckets (id, name, public)
+values ('photos', 'photos', true)
+on conflict (id) do update set public = true;
+
+drop policy if exists "photos_storage_read" on storage.objects;
+create policy "photos_storage_read" on storage.objects
+  for select to anon, authenticated
+  using (bucket_id = 'photos');
+
+drop policy if exists "photos_storage_insert" on storage.objects;
+create policy "photos_storage_insert" on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'photos' and public.is_admin());
+
+drop policy if exists "photos_storage_update" on storage.objects;
+create policy "photos_storage_update" on storage.objects
+  for update to authenticated
+  using (bucket_id = 'photos' and public.is_admin())
+  with check (bucket_id = 'photos' and public.is_admin());
+
+drop policy if exists "photos_storage_delete" on storage.objects;
+create policy "photos_storage_delete" on storage.objects
+  for delete to authenticated
+  using (bucket_id = 'photos' and public.is_admin());
+
 do $$
 declare
   t text;
 begin
-  foreach t in array array['chat_messages', 'conversations', 'guides', 'videos', 'streamers', 'site_settings', 'contact_messages']
+  foreach t in array array['chat_messages', 'conversations', 'guides', 'videos', 'streamers', 'photos', 'site_settings', 'contact_messages']
   loop
     begin
       execute format('alter publication supabase_realtime add table public.%I', t);
@@ -541,6 +647,8 @@ Thorne Vale | Moderación | Sostiene el respeto y no deja espacio para la toxici
   ('contact_text', 'Escribe desde aquí si todavía no tienes cuenta. Quienes ya están en el gremio también pueden dejar un mensaje directo en el chat.'),
   ('streaming_title', 'En vivo en Twitch'),
   ('streaming_text', 'Los cazadores que transmiten aparecen aquí. El botón verde abre la transmisión; el rojo indica que están fuera de línea.'),
+  ('photos_title', 'El álbum del clan'),
+  ('photos_text', 'Las fotos se ven pequeñas. Pulsa una para verla en grande y pasa a la siguiente con las flechas.'),
   ('streamers', '')
 on conflict (key) do nothing;
 
@@ -579,5 +687,20 @@ where twitch_login ~ '^[a-z0-9_]{3,25}$'
   and not exists (
     select 1 from public.streamers as existing where existing.twitch_login = parsed.twitch_login
   );
+
+insert into public.avatars (slug, class_name, title, image_path, sort_order) values
+  ('barbaro', 'Bárbaro', 'Bárbaro', '/img/avatars/barbaro.jpg', 1),
+  ('hechicero', 'Hechicero', 'Hechicero', '/img/avatars/hechicero.jpg', 2),
+  ('brujo', 'Brujo', 'Brujo', '/img/avatars/brujo.jpg', 3),
+  ('druida', 'Druida', 'Druida', '/img/avatars/druida.jpg', 4),
+  ('nigromante', 'Nigromante', 'Nigromante', '/img/avatars/nigromante.jpg', 5),
+  ('picaro', 'Pícaro', 'Pícaro', '/img/avatars/picaro.jpg', 6),
+  ('espiritualista', 'Espiritualista', 'Espiritualista', '/img/avatars/espiritualista.jpg', 7),
+  ('paladin', 'Paladín', 'Paladín', '/img/avatars/paladin.jpg', 8)
+on conflict (slug) do update set
+  class_name = excluded.class_name,
+  title = excluded.title,
+  image_path = excluded.image_path,
+  sort_order = excluded.sort_order;
 
 notify pgrst, 'reload schema';

@@ -9,9 +9,9 @@ const LINKS = [
   { href: '#nosotros', id: 'nosotros', label: 'Sobre nosotros' },
   { href: '#staff', id: 'staff', label: 'Staff' },
   { href: '#videos', id: 'videos', label: 'Galería de videos' },
+  { href: '#fotos', id: 'fotos', label: 'Fotos' },
   { href: '#streaming', id: 'streaming', label: 'Streaming' },
   { href: '#guias', id: 'guias', label: 'Guías' },
-  { href: '#contacto', id: 'contacto', label: 'Contacto' },
 ]
 
 export default function Navbar() {

@@ -42,6 +42,14 @@ const GROUPS = [
     ],
   },
   {
+    title: 'Galería de fotos',
+    note: 'Aquí solo cambias el título y el texto. Las imágenes se suben en Fotos.',
+    fields: [
+      ['photos_title', 'Título', false],
+      ['photos_text', 'Texto', true],
+    ],
+  },
+  {
     title: 'Streaming',
     note: 'Aquí solo cambias el título y el texto de la sección. Los nombres y los enlaces de Twitch se administran en Streaming.',
     fields: [
@@ -98,7 +106,7 @@ export default function ContentAdmin() {
     <div>
       <h2 className="font-display text-3xl text-silver">Contenido</h2>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-steel">
-        Textos del inicio, sobre nosotros, la filosofía, el staff, la galería, el streaming, las guías, el contacto y el pie. Se guardan en Supabase.
+        Textos del inicio, sobre nosotros, la filosofía, el staff, las galerías, el streaming, las guías, el contacto y el pie. Se guardan en Supabase.
       </p>
       <form className="mt-6 grid gap-4" onSubmit={onSubmit}>
         {GROUPS.map((group) => (

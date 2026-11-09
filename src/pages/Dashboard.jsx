@@ -6,13 +6,14 @@ import { Badge, Button, Field, Frame, ScreenLoader, SelectField } from '../compo
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { cx } from '../lib/format'
-import { D4_CLASSES, compressAvatar, hunterFields, validBattleTag } from '../lib/hunter'
+import { D4_AVATARS, D4_CLASSES, avatarCatalog, hunterFields, normalizeBattleTag, validBattleTag } from '../lib/hunter'
 import { supabase } from '../lib/supabase'
 import ContactAdmin from './admin/ContactAdmin'
 import ContentAdmin from './admin/ContentAdmin'
 import GuideAdmin from './admin/GuideAdmin'
 import Overview from './admin/Overview'
 import PeopleAdmin from './admin/PeopleAdmin'
+import PhotoAdmin from './admin/PhotoAdmin'
 import StreamAdmin from './admin/StreamAdmin'
 import VideoAdmin from './admin/VideoAdmin'
 
@@ -21,6 +22,7 @@ const ADMIN_ITEMS = [
   ['perfil', 'Perfil'],
   ['guias', 'Guías'],
   ['videos', 'Videos'],
+  ['fotos', 'Fotos'],
   ['streaming', 'Streaming'],
   ['contenido', 'Contenido'],
   ['cazadores', 'Usuarios'],
@@ -45,6 +47,7 @@ export default function Dashboard() {
   const [d4Class, setD4Class] = useState('')
   const [battletag, setBattletag] = useState('')
   const [saving, setSaving] = useState(false)
+  const [catalog, setCatalog] = useState(D4_AVATARS)
 
   useEffect(() => {
     document.title = 'Panel · Alas Grises'
@@ -80,34 +83,21 @@ export default function Dashboard() {
     navigate('/')
   }
 
-  async function onAvatar(event) {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (!file) return
-    if (!file.type.startsWith('image/')) {
-      push('El avatar tiene que ser una imagen.', 'err')
-      return
+  useEffect(() => {
+    let cancel = false
+    supabase.from('avatars').select('slug,class_name,title,image_path').order('sort_order', { ascending: true }).then(({ data, error }) => {
+      if (cancel || error || !data?.length) return
+      setCatalog(avatarCatalog(data))
+    })
+    return () => {
+      cancel = true
     }
-    if (file.size > 4 * 1024 * 1024) {
-      push('La imagen supera los 4 MB.', 'err')
-      return
-    }
-    try {
-      const next = await compressAvatar(file)
-      if (next.length > 120000) {
-        push('Esa imagen sigue siendo muy pesada. Prueba con otra.', 'err')
-        return
-      }
-      setAvatar(next)
-    } catch {
-      push('No se pudo leer la imagen.', 'err')
-    }
-  }
+  }, [])
 
   async function saveProfile(event) {
     event.preventDefault()
     const next = username.trim()
-    const tag = battletag.trim()
+    const tag = normalizeBattleTag(battletag)
     if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ0-9 _-]{3,20}$/.test(next)) {
       push('El nombre debe tener entre 3 y 20 caracteres.', 'err')
       return
@@ -120,6 +110,11 @@ export default function Dashboard() {
       push('El BattleTag usa el formato Nombre#1234.', 'err')
       return
     }
+    if (avatar && !catalog.some((item) => item.image === avatar)) {
+      push('Elige un avatar de Diablo IV.', 'err')
+      return
+    }
+    setBattletag(tag)
     setSaving(true)
     const sheet = { avatar_url: avatar, d4_class: d4Class, battletag: tag }
     const authUpdate = await supabase.auth.updateUser({ data: sheet })
@@ -160,6 +155,7 @@ export default function Dashboard() {
   if (isAdmin && section === 'resumen') content = <Overview onNavigate={setSection} />
   if (isAdmin && section === 'guias') content = <GuideAdmin />
   if (isAdmin && section === 'videos') content = <VideoAdmin />
+  if (isAdmin && section === 'fotos') content = <PhotoAdmin />
   if (isAdmin && section === 'streaming') content = <StreamAdmin />
   if (isAdmin && section === 'contenido') content = <ContentAdmin />
   if (isAdmin && section === 'cazadores') content = <PeopleAdmin onOpenMessages={() => setSection('mensajes')} />
@@ -178,24 +174,37 @@ export default function Dashboard() {
       <div>
         <h2 className="font-display text-3xl text-silver">Tu perfil</h2>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-steel">
-          Así te ve el gremio: tu nombre, tu avatar, la clase con la que entras a Santuario y tu BattleTag.
+          Así te ve el gremio: tu nombre, un avatar de Diablo IV, la clase con la que entras a Santuario y tu BattleTag.
         </p>
         <div className="mt-6 grid items-start gap-4 md:grid-cols-[240px_minmax(0,1fr)]">
           <HunterCard username={username} avatar={avatar} d4Class={d4Class} battletag={battletag} email={user.email} />
           <Frame className="p-5">
             <form className="grid gap-4" onSubmit={saveProfile}>
               <div>
-                <span className="mb-1.5 block text-[11px] uppercase tracking-[0.18em] text-mute">Avatar</span>
-                <div className="flex flex-wrap items-center gap-3">
-                  <label className="inline-flex cursor-pointer items-center border border-white/15 bg-white/5 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.16em] text-silver hover:border-[#ff5a3c]/70 hover:text-white">
-                    Elegir foto
-                    <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={onAvatar} />
-                  </label>
-                  {avatar ? (
-                    <button type="button" className="text-xs uppercase tracking-[0.14em] text-mute hover:text-white" onClick={() => setAvatar('')}>
-                      Quitar
-                    </button>
-                  ) : null}
+                <span className="mb-1.5 block text-[11px] uppercase tracking-[0.18em] text-mute">Avatar de Diablo IV</span>
+                <div className="flex flex-wrap gap-2">
+                  {catalog.map((item) => {
+                    const selected = avatar === item.image
+                    return (
+                      <button
+                        key={item.slug}
+                        type="button"
+                        aria-pressed={selected}
+                        aria-label={item.title}
+                        onClick={() => {
+                          setAvatar(item.image)
+                          setD4Class(item.className)
+                        }}
+                        className={cx(
+                          'w-14 border p-1 text-center transition sm:w-16',
+                          selected ? 'border-[#ff4536] bg-[#ff4536]/10' : 'border-white/10 hover:border-[#ff5a3c]/70',
+                        )}
+                      >
+                        <img src={item.image} alt="" className="aspect-square w-full object-cover" />
+                        <span className="mt-1 block truncate text-[10px] uppercase tracking-[0.08em] text-steel">{item.title}</span>
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
               <Field label="Nombre de usuario" value={username} onChange={(event) => setUsername(event.target.value)} maxLength={20} />

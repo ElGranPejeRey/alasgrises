@@ -7,6 +7,7 @@ const STEPS = [
   { id: 'contenido', title: 'Textos del clan', text: 'Ajusta el hero, la historia y el contacto.' },
   { id: 'guias', title: 'Guías', text: 'Pega un enlace de YouTube. El video completo solo lo miran los registrados.' },
   { id: 'videos', title: 'Videos', text: 'Arma el carrusel con enlaces de YouTube o mp4.' },
+  { id: 'fotos', title: 'Fotos', text: 'Sube imágenes. En la web se ven pequeñas y se abren en grande.' },
   { id: 'streaming', title: 'Streaming', text: 'Agrega el nombre y el enlace de Twitch de quien transmite.' },
   { id: 'cazadores', title: 'Usuarios', text: 'Mira las cuentas registradas y cambia el rango a admin o usuario normal.' },
   { id: 'mensajes', title: 'Chat', text: 'Responde a los cazadores desde el mismo hilo.' },
