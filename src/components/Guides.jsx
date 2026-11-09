@@ -4,19 +4,22 @@ import { useToast } from '../context/ToastContext'
 import { text } from '../lib/defaults'
 import { countGuideView, cx, formatBytes, formatDate, guideVideoUrl, missingTable, youtubeGuideId } from '../lib/format'
 import { supabase } from '../lib/supabase'
-import { Badge, Empty, Frame, SectionHeading, Skeleton } from './ui'
+import { Badge, Button, Empty, Frame, SectionHeading, Skeleton } from './ui'
 
 const PUBLIC_COLUMNS = 'id,title,description,category,file_name,file_size,downloads,created_at'
 const MEMBER_COLUMNS = `${PUBLIC_COLUMNS},file_path`
 
 export default function Guides({ settings = {}, variant = 'page' }) {
-  const { user, openAuth } = useAuth()
+  const { user, loading: authLoading, openAuth } = useAuth()
   const push = useToast()
   const [guides, setGuides] = useState([])
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('Todas')
+  const [watching, setWatching] = useState(null)
+  const [gate, setGate] = useState(false)
+  const counted = useRef(new Set())
 
   useEffect(() => {
     let cancel = false
@@ -58,10 +61,29 @@ export default function Guides({ settings = {}, variant = 'page' }) {
   })
 
   function onView(guideId) {
+    if (counted.current.has(guideId)) return
+    counted.current.add(guideId)
+    countGuideView(guideId)
     setGuides((current) => current.map((item) => (
       item.id === guideId ? { ...item, downloads: (item.downloads || 0) + 1 } : item
     )))
   }
+
+  useEffect(() => {
+    if (!watching && !gate) return undefined
+    function onKey(event) {
+      if (event.key !== 'Escape') return
+      setWatching(null)
+      setGate(false)
+    }
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = previous
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [watching, gate])
 
   const body = (
     <>
@@ -123,8 +145,13 @@ export default function Guides({ settings = {}, variant = 'page' }) {
               <GuidePlayer
                 guide={guide}
                 locked={!user}
-                onNeedAccount={() => openAuth('register')}
-                onView={() => onView(guide.id)}
+                onNeedAccount={() => {
+                  if (!authLoading) setGate(true)
+                }}
+                onWatch={(video) => {
+                  onView(guide.id)
+                  setWatching(video)
+                }}
                 onError={() => push('No se pudo abrir el video. Entra con tu cuenta e inténtalo de nuevo.', 'err')}
               />
               <div className="flex flex-1 flex-col p-5">
@@ -142,6 +169,21 @@ export default function Guides({ settings = {}, variant = 'page' }) {
             </Frame>
           ))}
         </div>
+      ) : null}
+
+      {watching ? <GuideModal video={watching} onClose={() => setWatching(null)} /> : null}
+      {gate ? (
+        <GuideGate
+          onClose={() => setGate(false)}
+          onRegister={() => {
+            setGate(false)
+            openAuth('register')
+          }}
+          onLogin={() => {
+            setGate(false)
+            openAuth('login')
+          }}
+        />
       ) : null}
     </>
   )
@@ -172,28 +214,17 @@ export default function Guides({ settings = {}, variant = 'page' }) {
   )
 }
 
-function GuidePlayer({ guide, locked, onNeedAccount, onView, onError }) {
-  const [url, setUrl] = useState('')
-  const [youtubeId, setYoutubeId] = useState('')
+function GuidePlayer({ guide, locked, onNeedAccount, onWatch, onError }) {
   const [busy, setBusy] = useState(false)
-  const counted = useRef(false)
-
-  function markView() {
-    if (counted.current) return
-    counted.current = true
-    countGuideView(guide.id)
-    onView()
-  }
+  const poster = youtubeGuideId(guide.file_path)
 
   async function open() {
     if (locked) {
       onNeedAccount()
       return
     }
-    const linked = youtubeGuideId(guide.file_path)
-    if (linked) {
-      setYoutubeId(linked)
-      markView()
+    if (poster) {
+      onWatch({ guide, youtubeId: poster, url: '' })
       return
     }
     if (!guide.file_path) {
@@ -202,7 +233,7 @@ function GuidePlayer({ guide, locked, onNeedAccount, onView, onError }) {
     }
     setBusy(true)
     try {
-      setUrl(await guideVideoUrl(guide))
+      onWatch({ guide, youtubeId: '', url: await guideVideoUrl(guide) })
     } catch {
       onError()
     } finally {
@@ -210,40 +241,69 @@ function GuidePlayer({ guide, locked, onNeedAccount, onView, onError }) {
     }
   }
 
-  if (youtubeId) {
-    return (
-      <iframe
-        src={`https://www.youtube-nocookie.com/embed/${youtubeId}?rel=0&autoplay=1`}
-        title={guide.title}
-        className="aspect-video w-full bg-black"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        allowFullScreen
-      />
-    )
-  }
-
-  if (url) {
-    return (
-      <video
-        src={url}
-        controls
-        autoPlay
-        playsInline
-        className="aspect-video w-full bg-black"
-        onPlay={markView}
-      />
-    )
-  }
-
   return (
     <button type="button" onClick={open} className="relative grid aspect-video w-full place-items-center overflow-hidden bg-black text-center">
-      <span className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(157,28,46,0.5),transparent_58%)]" />
+      {poster ? (
+        <img src={`https://i.ytimg.com/vi/${poster}/hqdefault.jpg`} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <span className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(157,28,46,0.5),transparent_58%)]" />
+      )}
+      <span className="absolute inset-0 bg-black/45" />
       <span className="relative px-4">
-        <span className="mx-auto grid h-14 w-14 place-items-center border border-[#ff4536] font-display text-lg text-white">▶</span>
+        <span className="mx-auto grid h-14 w-14 place-items-center border border-[#ff4536] bg-black/50 font-display text-lg text-white">▶</span>
         <span className="mt-3 block text-[11px] uppercase tracking-[0.16em] text-[#ffb0a6]">
-          {locked ? 'Regístrate para verlo completo' : busy ? 'Abriendo…' : 'Ver video completo'}
+          {busy ? 'Abriendo…' : 'Ver video'}
         </span>
       </span>
     </button>
+  )
+}
+
+function GuideGate({ onClose, onRegister, onLogin }) {
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4" role="dialog" aria-modal="true" aria-labelledby="guide-gate-title">
+      <button type="button" className="absolute inset-0 cursor-default" aria-label="Cerrar aviso" onClick={onClose} />
+      <div className="relative w-full max-w-md border border-white/10 bg-[#10080a] p-6 shadow-[0_30px_80px_rgba(0,0,0,0.55)]">
+        <p id="guide-gate-title" className="font-display text-3xl leading-tight text-silver">Para ver este contenido tienes que estar registrado en el sitio.</p>
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <Button className="sm:flex-1" onClick={onRegister}>Registrarme</Button>
+          <Button variant="ghost" className="sm:flex-1" onClick={onLogin}>Iniciar sesión</Button>
+        </div>
+        <button type="button" className="mt-4 text-xs uppercase tracking-[0.16em] text-steel hover:text-white" onClick={onClose}>
+          Cerrar
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function GuideModal({ video, onClose }) {
+  const { guide, youtubeId, url } = video
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4" role="dialog" aria-modal="true" aria-label={guide.title}>
+      <button type="button" className="absolute inset-0 cursor-default" aria-label="Cerrar video" onClick={onClose} />
+      <div className="relative w-full max-w-5xl border border-white/10 bg-black shadow-[0_30px_80px_rgba(0,0,0,0.55)]">
+        <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+          <div className="min-w-0">
+            <p className="truncate font-display text-xl text-silver">{guide.title}</p>
+            <p className="text-xs uppercase tracking-[0.16em] text-[#ffb0a6]">{guide.category || 'Guía'}</p>
+          </div>
+          <button type="button" className="shrink-0 px-3 py-2 text-xs uppercase tracking-[0.16em] text-steel hover:text-white" onClick={onClose}>
+            Cerrar
+          </button>
+        </div>
+        {youtubeId ? (
+          <iframe
+            src={`https://www.youtube-nocookie.com/embed/${youtubeId}?rel=0&autoplay=1`}
+            title={guide.title}
+            className="aspect-video max-h-[calc(100svh-8.5rem)] w-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        ) : (
+          <video src={url} controls autoPlay playsInline className="aspect-video max-h-[calc(100svh-8.5rem)] w-full bg-black" />
+        )}
+      </div>
+    </div>
   )
 }
