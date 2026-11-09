@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { cx } from '../lib/format'
@@ -14,6 +14,21 @@ const LINKS = [
   { href: '#guias', id: 'guias', label: 'Guías' },
 ]
 
+function sectionInView() {
+  const marker = 128
+  const nearBottom = window.scrollY > 40 && window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 8
+  if (nearBottom) {
+    const last = [...LINKS].reverse().find((link) => document.getElementById(link.id))
+    if (last) return last.id
+  }
+  let current = LINKS[0].id
+  for (const link of LINKS) {
+    const node = document.getElementById(link.id)
+    if (node && node.getBoundingClientRect().top <= marker) current = link.id
+  }
+  return current
+}
+
 export default function Navbar() {
   const { user, profile, openAuth, signOut } = useAuth()
   const location = useLocation()
@@ -21,6 +36,7 @@ export default function Navbar() {
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [active, setActive] = useState('inicio')
+  const holdSpy = useRef(0)
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20)
@@ -31,18 +47,27 @@ export default function Navbar() {
 
   useEffect(() => {
     if (location.pathname !== '/') return undefined
-    const nodes = LINKS.map((link) => document.getElementById(link.id)).filter(Boolean)
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0]
-        if (visible?.target?.id) setActive(visible.target.id)
-      },
-      { rootMargin: '-45% 0px -45% 0px', threshold: [0.1, 0.3] },
-    )
-    nodes.forEach((node) => observer.observe(node))
-    return () => observer.disconnect()
+    let frame = 0
+    function sync() {
+      if (performance.now() < holdSpy.current) return
+      setActive(sectionInView())
+    }
+    function onScroll() {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(sync)
+    }
+    sync()
+    const later = window.setTimeout(sync, 400)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll)
+    window.addEventListener('hashchange', onScroll)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.clearTimeout(later)
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+      window.removeEventListener('hashchange', onScroll)
+    }
   }, [location.pathname])
 
   useEffect(() => {
@@ -55,8 +80,16 @@ export default function Navbar() {
   function Item({ link, className = '' }) {
     const props = {
       className: cx('fire-link', className),
-      'data-active': location.pathname === '/' && active === link.id,
-      onClick: () => setOpen(false),
+      'data-active': location.pathname === '/' && active === link.id ? 'true' : 'false',
+      onClick: () => {
+        setOpen(false)
+        setActive(link.id)
+        holdSpy.current = performance.now() + 700
+        window.setTimeout(() => {
+          holdSpy.current = 0
+          if (window.location.pathname === '/') setActive(sectionInView())
+        }, 760)
+      },
     }
     if (location.pathname !== '/') {
       return (
