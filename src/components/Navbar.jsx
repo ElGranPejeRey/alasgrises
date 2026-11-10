@@ -11,7 +11,6 @@ const LINKS = [
   { href: '#videos', id: 'videos', label: 'Galería de videos' },
   { href: '#fotos', id: 'fotos', label: 'Fotos' },
   { href: '#streaming', id: 'streaming', label: 'Streaming' },
-  { href: '#guias', id: 'guias', label: 'Guías' },
 ]
 
 function sectionInView() {
@@ -114,7 +113,7 @@ export default function Navbar() {
     >
       <div className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
         <Link to="/#inicio" className="shrink-0" onClick={() => setOpen(false)}>
-          <img src="/img/alas.jpg" alt="Alas Grises" className="h-12 w-auto max-w-[180px] object-contain sm:h-14 sm:max-w-[220px]" />
+          <img src="/img/Emblema%20Alas%20Grises.png" alt="Alas Grises" className="h-12 w-12 object-contain sm:h-14 sm:w-14" />
         </Link>
 
         <nav className="hidden items-center gap-4 xl:gap-6 lg:flex" aria-label="Principal">

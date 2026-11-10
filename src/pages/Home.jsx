@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import About from '../components/About'
 import Staff from '../components/Staff'
-import Guides from '../components/Guides'
 import Hero from '../components/Hero'
 import PhotoGallery from '../components/PhotoGallery'
 import Streaming from '../components/Streaming'
@@ -23,7 +22,6 @@ export default function Home() {
       <VideoGallery settings={settings} />
       <PhotoGallery settings={settings} />
       <Streaming settings={settings} />
-      <Guides settings={settings} />
     </main>
   )
 }

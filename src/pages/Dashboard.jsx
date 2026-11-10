@@ -168,7 +168,7 @@ export default function Dashboard() {
       </div>
     )
   }
-  if (!isAdmin && section === 'guias') content = <Guides variant="dashboard" />
+  if (!isAdmin && section === 'guias') content = <Guides />
   if (section === 'perfil') {
     content = (
       <div>
@@ -236,7 +236,7 @@ export default function Dashboard() {
     <div className="min-h-screen bg-ash">
       <header className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3 sm:px-6">
         <Link to="/" className="min-w-0">
-          <img src="/img/alas.jpg" alt="Alas Grises" className="h-11 w-auto max-w-[180px] object-contain" />
+          <img src="/img/Emblema%20Alas%20Grises.png" alt="Alas Grises" className="h-12 w-12 object-contain" />
         </Link>
         <div className="flex items-center gap-2">
           <Avatar name={profile.username} src={avatar} className="h-9 w-9" />

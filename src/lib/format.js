@@ -38,6 +38,13 @@ export function accountEmail(value) {
   return `${text}@alasgrises.com`
 }
 
+const EMAIL = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/
+
+export function validEmail(value) {
+  const text = value.trim()
+  return EMAIL.test(text) && !text.includes('..')
+}
+
 export function humanAuthError(message = '') {
   const text = message.toLowerCase()
   if (text.includes('invalid login') || text.includes('invalid credentials')) {
@@ -55,8 +62,8 @@ export function humanAuthError(message = '') {
   if (text.includes('rate limit') || text.includes('too many')) {
     return 'Demasiados intentos. Espera un momento.'
   }
-  if (text.includes('valid email') || text.includes('unable to validate')) {
-    return 'Ese correo no es válido.'
+  if (text.includes('valid email') || text.includes('unable to validate') || text.includes('invalid email')) {
+    return 'Correo no válido.'
   }
   return 'No se pudo completar. Revisa los datos e inténtalo de nuevo.'
 }

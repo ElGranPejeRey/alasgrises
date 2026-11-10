@@ -56,7 +56,6 @@ export default function Hero({ settings }) {
         </p>
         <div className="mt-8 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
           <Button href="#nosotros" className="w-full sm:w-auto">Sobre nosotros</Button>
-          <Button href="#guias" variant="ghost" className="w-full sm:w-auto">Ver guías</Button>
         </div>
         <p className="mt-8 text-[11px] uppercase tracking-[0.32em] text-white/70">{HERO_SLIDES[index].caption}</p>
         <div className="mt-4 flex gap-2" role="tablist" aria-label="Imágenes del hero">

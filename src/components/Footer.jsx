@@ -9,7 +9,6 @@ const LINKS = [
   { href: '#videos', label: 'Galería de videos' },
   { href: '#fotos', label: 'Fotos' },
   { href: '#streaming', label: 'Streaming' },
-  { href: '#guias', label: 'Guías' },
 ]
 
 export default function Footer() {
@@ -23,7 +22,7 @@ export default function Footer() {
     <footer className="border-t border-[#ff4536]/30 bg-black/50 px-4 py-14 sm:px-6">
       <div className="mx-auto grid max-w-6xl gap-10 md:grid-cols-[1.3fr_0.8fr_0.9fr]">
         <div>
-          <img src="/img/alas.jpg" alt="Alas Grises" className="h-16 w-auto max-w-[240px] object-contain" />
+          <img src="/img/Emblema%20Alas%20Grises.png" alt="Alas Grises" className="h-20 w-20 object-contain" />
           <p className="mt-4 max-w-md text-sm leading-relaxed text-steel">{text(settings, 'footer_text')}</p>
         </div>
         <div>

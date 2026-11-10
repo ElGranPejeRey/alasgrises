@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
-import { accountEmail, cx, humanAuthError } from '../lib/format'
+import { accountEmail, cx, humanAuthError, validEmail } from '../lib/format'
 import { supabase } from '../lib/supabase'
 import { Button, Field, IconClose } from './ui'
 
@@ -70,6 +70,10 @@ export default function AuthModal() {
       setError('El nombre debe tener entre 3 y 20 caracteres.')
       return
     }
+    if (!validEmail(email)) {
+      setError('Correo no válido.')
+      return
+    }
     if (password.length < 6) {
       setError('La contraseña debe tener al menos 6 caracteres.')
       return
@@ -80,7 +84,7 @@ export default function AuthModal() {
     }
     setBusy(true)
     setError('')
-    const credentials = { email: email.trim(), password }
+    const credentials = { email: email.trim().toLowerCase(), password }
     const { data, error: authError } = await supabase.auth.signUp({
       ...credentials,
       options: {
@@ -161,7 +165,7 @@ export default function AuthModal() {
         <button type="button" className="absolute right-3 top-3 grid h-10 w-10 place-items-center text-steel hover:text-white" aria-label="Cerrar ventana" onClick={() => { closeAuth(); setRecovery(false) }}>
           <IconClose />
         </button>
-        <img src="/img/alas.jpg" alt="" className="mx-auto h-14 w-auto max-w-[200px] object-contain" />
+        <img src="/img/Emblema%20Alas%20Grises.png" alt="" className="mx-auto h-16 w-16 object-contain" />
         <h2 id="auth-title" className="mt-4 text-center font-display text-2xl text-silver">
           {recovery ? 'Nueva contraseña' : authMode === 'login' ? 'Entrar al nido' : 'Unirse al gremio'}
         </h2>
@@ -216,7 +220,7 @@ export default function AuthModal() {
         ) : null}
 
         {!recovery && !forgot && authMode === 'register' ? (
-          <form className="mt-5 grid gap-4" onSubmit={onRegister}>
+          <form className="mt-5 grid gap-4" noValidate onSubmit={onRegister}>
             <Field label="Nombre en el clan" value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required maxLength={20} />
             <Field label="Correo" type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" required />
             <Field label="Contraseña" type={show ? 'text' : 'password'} value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" required />

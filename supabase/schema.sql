@@ -86,6 +86,20 @@ create table if not exists public.avatars (
   sort_order integer not null default 0
 );
 
+create table if not exists public.permissions (
+  slug text primary key,
+  name text not null,
+  description text not null default ''
+);
+
+create table if not exists public.user_permissions (
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  permission_slug text not null references public.permissions (slug) on delete cascade,
+  granted_by uuid references public.profiles (id) on delete set null,
+  granted_at timestamptz not null default now(),
+  primary key (user_id, permission_slug)
+);
+
 create table if not exists public.contact_messages (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -116,6 +130,8 @@ create index if not exists guides_published_idx on public.guides (published, cre
 create index if not exists videos_order_idx on public.videos (sort_order, created_at);
 create index if not exists streamers_order_idx on public.streamers (published, sort_order, created_at);
 create index if not exists photos_order_idx on public.photos (published, sort_order, created_at);
+create index if not exists user_permissions_slug_idx on public.user_permissions (permission_slug);
+alter table public.user_permissions replica identity full;
 create index if not exists chat_messages_conversation_idx on public.chat_messages (conversation_id, created_at);
 create index if not exists contact_messages_created_idx on public.contact_messages (created_at desc);
 
@@ -129,6 +145,21 @@ as $$
   select exists (
     select 1 from public.profiles
     where id = auth.uid() and role = 'admin'
+  );
+$$;
+
+create or replace function public.has_permission(target text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.user_permissions
+    where user_id = auth.uid()
+      and permission_slug = target
   );
 $$;
 
@@ -242,6 +273,9 @@ begin
   if auth.uid() is null then
     raise exception 'not authenticated';
   end if;
+  if not public.is_admin() and not public.has_permission('alasgrises') then
+    raise exception 'sin permiso';
+  end if;
   update public.guides
   set downloads = downloads + 1
   where id = guide_id and published = true;
@@ -294,6 +328,8 @@ alter table public.videos enable row level security;
 alter table public.streamers enable row level security;
 alter table public.photos enable row level security;
 alter table public.avatars enable row level security;
+alter table public.permissions enable row level security;
+alter table public.user_permissions enable row level security;
 alter table public.contact_messages enable row level security;
 alter table public.conversations enable row level security;
 alter table public.chat_messages enable row level security;
@@ -305,6 +341,8 @@ revoke all on table public.videos from anon, authenticated;
 revoke all on table public.streamers from anon, authenticated;
 revoke all on table public.photos from anon, authenticated;
 revoke all on table public.avatars from anon, authenticated;
+revoke all on table public.permissions from anon, authenticated;
+revoke all on table public.user_permissions from anon, authenticated;
 revoke all on table public.contact_messages from anon, authenticated;
 revoke all on table public.conversations from anon, authenticated;
 revoke all on table public.chat_messages from anon, authenticated;
@@ -312,8 +350,6 @@ revoke all on table public.chat_messages from anon, authenticated;
 grant select, update on table public.profiles to authenticated;
 grant select on table public.site_settings to anon, authenticated;
 grant insert, update, delete on table public.site_settings to authenticated;
-grant select (id, title, description, category, file_name, file_size, downloads, published, created_at)
-  on table public.guides to anon;
 grant select, insert, update, delete on table public.guides to authenticated;
 grant select on table public.videos to anon, authenticated;
 grant insert, update, delete on table public.videos to authenticated;
@@ -322,12 +358,15 @@ grant insert, update, delete on table public.streamers to authenticated;
 grant select on table public.photos to anon, authenticated;
 grant insert, update, delete on table public.photos to authenticated;
 grant select on table public.avatars to anon, authenticated;
+grant select on table public.permissions to authenticated;
+grant select, insert, delete on table public.user_permissions to authenticated;
 grant insert on table public.contact_messages to anon, authenticated;
 grant select, update, delete on table public.contact_messages to authenticated;
 grant select, insert, update on table public.conversations to authenticated;
 grant select, insert, update on table public.chat_messages to authenticated;
 
 grant execute on function public.is_admin() to anon, authenticated;
+grant execute on function public.has_permission(text) to authenticated;
 grant execute on function public.increment_downloads(uuid) to authenticated;
 revoke all on function public.delete_clan_user(uuid) from public, anon;
 grant execute on function public.delete_clan_user(uuid) to authenticated;
@@ -361,8 +400,11 @@ create policy "settings_update" on public.site_settings
 
 drop policy if exists "guides_read" on public.guides;
 create policy "guides_read" on public.guides
-  for select to anon, authenticated
-  using (published = true or public.is_admin());
+  for select to authenticated
+  using (
+    public.is_admin()
+    or (published = true and public.has_permission('alasgrises'))
+  );
 
 drop policy if exists "guides_insert" on public.guides;
 create policy "guides_insert" on public.guides
@@ -447,6 +489,32 @@ drop policy if exists "avatars_read" on public.avatars;
 create policy "avatars_read" on public.avatars
   for select to anon, authenticated
   using (true);
+
+drop policy if exists "permissions_read" on public.permissions;
+create policy "permissions_read" on public.permissions
+  for select to authenticated
+  using (true);
+
+drop policy if exists "user_permissions_read" on public.user_permissions;
+create policy "user_permissions_read" on public.user_permissions
+  for select to authenticated
+  using (user_id = auth.uid() or public.is_admin());
+
+drop policy if exists "user_permissions_insert" on public.user_permissions;
+create policy "user_permissions_insert" on public.user_permissions
+  for insert to authenticated
+  with check (public.is_admin());
+
+drop policy if exists "user_permissions_delete" on public.user_permissions;
+create policy "user_permissions_delete" on public.user_permissions
+  for delete to authenticated
+  using (public.is_admin());
+
+insert into public.permissions (slug, name, description)
+values ('alasgrises', 'AlasGrises', 'Permite ver y reproducir las guías del clan.')
+on conflict (slug) do update set
+  name = excluded.name,
+  description = excluded.description;
 
 drop policy if exists "contact_insert" on public.contact_messages;
 create policy "contact_insert" on public.contact_messages
@@ -541,7 +609,10 @@ on conflict (id) do update set public = false;
 drop policy if exists "guides_storage_read" on storage.objects;
 create policy "guides_storage_read" on storage.objects
   for select to authenticated
-  using (bucket_id = 'guides');
+  using (
+    bucket_id = 'guides'
+    and (public.is_admin() or public.has_permission('alasgrises'))
+  );
 
 drop policy if exists "guides_storage_insert" on storage.objects;
 create policy "guides_storage_insert" on storage.objects
@@ -588,7 +659,7 @@ do $$
 declare
   t text;
 begin
-  foreach t in array array['chat_messages', 'conversations', 'guides', 'videos', 'streamers', 'photos', 'site_settings', 'contact_messages']
+  foreach t in array array['chat_messages', 'conversations', 'guides', 'videos', 'streamers', 'photos', 'site_settings', 'contact_messages', 'user_permissions']
   loop
     begin
       execute format('alter publication supabase_realtime add table public.%I', t);

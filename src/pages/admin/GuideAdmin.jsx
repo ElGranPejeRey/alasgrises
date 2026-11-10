@@ -118,7 +118,7 @@ export default function GuideAdmin() {
     <div>
       <h2 className="font-display text-3xl text-silver">Guías</h2>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-steel">
-        Pega el enlace de YouTube. Quien visita la web ve el título, y el video completo solo se reproduce con una cuenta registrada.
+        Pega el enlace de YouTube. En el panel, un usuario ve el video solo si tiene el permiso AlasGrises.
       </p>
 
       <Frame className="mt-6 p-5">
@@ -139,7 +139,7 @@ export default function GuideAdmin() {
           />
           <label className="flex items-center gap-2 text-sm text-steel">
             <input type="checkbox" checked={form.published} onChange={(event) => setForm({ ...form, published: event.target.checked })} />
-            Visible en la web
+            Visible en el panel
           </label>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button type="submit" disabled={busy}>{busy ? 'Guardando…' : editing ? 'Guardar cambios' : 'Publicar video'}</Button>

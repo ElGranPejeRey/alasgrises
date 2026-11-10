@@ -58,13 +58,6 @@ const GROUPS = [
     ],
   },
   {
-    title: 'Guías',
-    fields: [
-      ['guides_title', 'Título', false],
-      ['guides_text', 'Texto', true],
-    ],
-  },
-  {
     title: 'Contacto y pie',
     fields: [
       ['contact_title', 'Título', false],

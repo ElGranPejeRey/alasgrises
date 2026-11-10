@@ -1,33 +1,61 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
-import { text } from '../lib/defaults'
 import { countGuideView, cx, formatBytes, formatDate, guideVideoUrl, missingTable, youtubeGuideId } from '../lib/format'
+import { GUIDE_PERMISSION, GUIDE_PERMISSION_LABEL } from '../lib/permissions'
 import { supabase } from '../lib/supabase'
-import { Badge, Button, Empty, Frame, SectionHeading, Skeleton } from './ui'
+import { Badge, Empty, Frame, Skeleton } from './ui'
 
-const PUBLIC_COLUMNS = 'id,title,description,category,file_name,file_size,downloads,created_at'
-const MEMBER_COLUMNS = `${PUBLIC_COLUMNS},file_path`
+const COLUMNS = 'id,title,description,category,file_name,file_size,downloads,created_at,file_path'
 
-export default function Guides({ settings = {}, variant = 'page' }) {
-  const { user, loading: authLoading, openAuth } = useAuth()
+export default function Guides() {
+  const { user } = useAuth()
   const push = useToast()
   const [guides, setGuides] = useState([])
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
+  const [access, setAccess] = useState('loading')
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('Todas')
   const [watching, setWatching] = useState(null)
-  const [gate, setGate] = useState(false)
   const counted = useRef(new Set())
 
   useEffect(() => {
+    if (!user) return undefined
+    let cancel = false
+    async function check() {
+      const { data, error } = await supabase
+        .from('user_permissions')
+        .select('permission_slug')
+        .eq('user_id', user.id)
+        .eq('permission_slug', GUIDE_PERMISSION)
+        .maybeSingle()
+      if (cancel) return
+      if (error) setAccess(missingTable(error) ? 'missing' : 'no')
+      else setAccess(data ? 'yes' : 'no')
+    }
+    check()
+    const channel = supabase
+      .channel(`guide-permission-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_permissions', filter: `user_id=eq.${user.id}` }, check)
+      .subscribe()
+    return () => {
+      cancel = true
+      supabase.removeChannel(channel)
+    }
+  }, [user])
+
+  useEffect(() => {
+    if (access !== 'yes') {
+      setLoading(access === 'loading')
+      setGuides([])
+      return undefined
+    }
     let cancel = false
     async function load() {
-      const columns = user ? MEMBER_COLUMNS : PUBLIC_COLUMNS
       const { data, error } = await supabase
         .from('guides')
-        .select(columns)
+        .select(COLUMNS)
         .eq('published', true)
         .order('created_at', { ascending: false })
       if (cancel) return
@@ -43,14 +71,14 @@ export default function Guides({ settings = {}, variant = 'page' }) {
     }
     load()
     const channel = supabase
-      .channel(`public-guides-${variant}`)
+      .channel('member-guides')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'guides' }, load)
       .subscribe()
     return () => {
       cancel = true
       supabase.removeChannel(channel)
     }
-  }, [user, variant, push])
+  }, [access, push])
 
   const categories = useMemo(() => ['Todas', ...Array.from(new Set(guides.map((guide) => guide.category).filter(Boolean)))], [guides])
 
@@ -70,11 +98,10 @@ export default function Guides({ settings = {}, variant = 'page' }) {
   }
 
   useEffect(() => {
-    if (!watching && !gate) return undefined
+    if (!watching) return undefined
     function onKey(event) {
       if (event.key !== 'Escape') return
       setWatching(null)
-      setGate(false)
     }
     const previous = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -83,7 +110,7 @@ export default function Guides({ settings = {}, variant = 'page' }) {
       document.body.style.overflow = previous
       window.removeEventListener('keydown', onKey)
     }
-  }, [watching, gate])
+  }, [watching])
 
   const body = (
     <>
@@ -127,7 +154,7 @@ export default function Guides({ settings = {}, variant = 'page' }) {
         <div className="mt-8">
           <Empty
             title="Todavía no hay guías"
-            text="Cuando el consejo publique un video, se verá aquí. Solo una cuenta registrada puede verlo completo."
+            text="Cuando un administrador publique un video, se verá aquí."
           />
         </div>
       ) : null}
@@ -144,15 +171,11 @@ export default function Guides({ settings = {}, variant = 'page' }) {
             <Frame key={guide.id} className="flex flex-col overflow-hidden">
               <GuidePlayer
                 guide={guide}
-                locked={!user}
-                onNeedAccount={() => {
-                  if (!authLoading) setGate(true)
-                }}
                 onWatch={(video) => {
                   onView(guide.id)
                   setWatching(video)
                 }}
-                onError={() => push('No se pudo abrir el video. Entra con tu cuenta e inténtalo de nuevo.', 'err')}
+                onError={() => push('No se pudo abrir el video.', 'err')}
               />
               <div className="flex flex-1 flex-col p-5">
                 <div className="flex items-start justify-between gap-3">
@@ -172,57 +195,44 @@ export default function Guides({ settings = {}, variant = 'page' }) {
       ) : null}
 
       {watching ? <GuideModal video={watching} onClose={() => setWatching(null)} /> : null}
-      {gate ? (
-        <GuideGate
-          onClose={() => setGate(false)}
-          onRegister={() => {
-            setGate(false)
-            openAuth('register')
-          }}
-          onLogin={() => {
-            setGate(false)
-            openAuth('login')
-          }}
-        />
-      ) : null}
     </>
   )
 
-  if (variant === 'dashboard') {
-    return (
-      <div>
-        <h2 className="font-display text-3xl text-silver">Guías del clan</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-steel">
-          Estás dentro. Desde aquí puedes ver completo cada video que el consejo haya publicado.
-        </p>
-        {body}
-      </div>
-    )
-  }
-
   return (
-    <section id="guias" className="scroll-mt-24 px-4 py-20 sm:px-6 sm:py-28">
-      <div className="mx-auto max-w-6xl">
-        <SectionHeading
-          kicker="Guías"
-          title={text(settings, 'guides_title')}
-          text={text(settings, 'guides_text')}
-        />
-        {body}
-      </div>
-    </section>
+    <div>
+      <h2 className="font-display text-3xl text-silver">Guías del clan</h2>
+      {access === 'yes' ? (
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-steel">
+          Tienes el permiso {GUIDE_PERMISSION_LABEL}. Desde aquí puedes ver cada video publicado.
+        </p>
+      ) : (
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-steel">
+          Para ver este contenido necesitas el permiso {GUIDE_PERMISSION_LABEL}. Solo un administrador puede dártelo.
+        </p>
+      )}
+      {access === 'yes' ? body : access === 'loading' ? (
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 3 }, (_, index) => <Skeleton key={index} className="h-56" />)}
+        </div>
+      ) : (
+        <Frame className="mt-8 p-6">
+          <p className="font-display text-2xl text-silver">Permiso {GUIDE_PERMISSION_LABEL}</p>
+          <p className="mt-3 max-w-xl text-sm leading-relaxed text-steel">
+            {access === 'missing'
+              ? 'El permiso todavía no está cargado en Supabase. Un administrador tiene que ejecutar el script de permisos.'
+              : `Sin el permiso ${GUIDE_PERMISSION_LABEL} no se puede abrir ninguna guía.`}
+          </p>
+        </Frame>
+      )}
+    </div>
   )
 }
 
-function GuidePlayer({ guide, locked, onNeedAccount, onWatch, onError }) {
+function GuidePlayer({ guide, onWatch, onError }) {
   const [busy, setBusy] = useState(false)
   const poster = youtubeGuideId(guide.file_path)
 
   async function open() {
-    if (locked) {
-      onNeedAccount()
-      return
-    }
     if (poster) {
       onWatch({ guide, youtubeId: poster, url: '' })
       return
@@ -256,24 +266,6 @@ function GuidePlayer({ guide, locked, onNeedAccount, onWatch, onError }) {
         </span>
       </span>
     </button>
-  )
-}
-
-function GuideGate({ onClose, onRegister, onLogin }) {
-  return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4" role="dialog" aria-modal="true" aria-labelledby="guide-gate-title">
-      <button type="button" className="absolute inset-0 cursor-default" aria-label="Cerrar aviso" onClick={onClose} />
-      <div className="relative w-full max-w-md border border-white/10 bg-[#10080a] p-6 shadow-[0_30px_80px_rgba(0,0,0,0.55)]">
-        <p id="guide-gate-title" className="font-display text-3xl leading-tight text-silver">Para ver este contenido tienes que estar registrado en el sitio.</p>
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-          <Button className="sm:flex-1" onClick={onRegister}>Registrarme</Button>
-          <Button variant="ghost" className="sm:flex-1" onClick={onLogin}>Iniciar sesión</Button>
-        </div>
-        <button type="button" className="mt-4 text-xs uppercase tracking-[0.16em] text-steel hover:text-white" onClick={onClose}>
-          Cerrar
-        </button>
-      </div>
-    </div>
   )
 }
 
