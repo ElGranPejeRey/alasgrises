@@ -720,7 +720,8 @@ Thorne Vale | Moderación | Sostiene el respeto y no deja espacio para la toxici
   ('streaming_text', 'Los cazadores que transmiten aparecen aquí. El botón verde abre la transmisión; el rojo indica que están fuera de línea.'),
   ('photos_title', 'El álbum del clan'),
   ('photos_text', 'Las fotos se ven pequeñas. Pulsa una para verla en grande y pasa a la siguiente con las flechas.'),
-  ('streamers', '')
+  ('streamers', ''),
+  ('paypal_url', '')
 on conflict (key) do nothing;
 
 insert into public.videos (title, description, youtube_id, sort_order, published)

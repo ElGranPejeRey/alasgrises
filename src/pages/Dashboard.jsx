@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import ChatPanel from '../components/ChatPanel'
+import Donations from '../components/Donations'
 import Guides from '../components/Guides'
 import { Badge, Button, Field, Frame, ScreenLoader, SelectField } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
@@ -8,11 +9,12 @@ import { useToast } from '../context/ToastContext'
 import { cx } from '../lib/format'
 import { D4_AVATARS, D4_CLASSES, avatarCatalog, hunterFields, normalizeBattleTag, validBattleTag } from '../lib/hunter'
 import { supabase } from '../lib/supabase'
-import ContactAdmin from './admin/ContactAdmin'
+import DiscordAdmin from './admin/DiscordAdmin'
 import ContentAdmin from './admin/ContentAdmin'
 import GuideAdmin from './admin/GuideAdmin'
 import Overview from './admin/Overview'
 import PeopleAdmin from './admin/PeopleAdmin'
+import PayPalAdmin from './admin/PayPalAdmin'
 import PhotoAdmin from './admin/PhotoAdmin'
 import StreamAdmin from './admin/StreamAdmin'
 import VideoAdmin from './admin/VideoAdmin'
@@ -24,15 +26,17 @@ const ADMIN_ITEMS = [
   ['videos', 'Videos'],
   ['fotos', 'Fotos'],
   ['streaming', 'Streaming'],
+  ['discord', 'Discord'],
+  ['paypal', 'PayPal'],
   ['contenido', 'Contenido'],
   ['cazadores', 'Usuarios'],
-  ['contacto', 'Contacto'],
   ['mensajes', 'Mensajes'],
 ]
 
 const USER_ITEMS = [
   ['guias', 'Guías'],
   ['perfil', 'Perfil'],
+  ['donaciones', 'Donaciones'],
   ['mensajes', 'Mensajes'],
 ]
 
@@ -157,9 +161,10 @@ export default function Dashboard() {
   if (isAdmin && section === 'videos') content = <VideoAdmin />
   if (isAdmin && section === 'fotos') content = <PhotoAdmin />
   if (isAdmin && section === 'streaming') content = <StreamAdmin />
+  if (isAdmin && section === 'discord') content = <DiscordAdmin />
+  if (isAdmin && section === 'paypal') content = <PayPalAdmin />
   if (isAdmin && section === 'contenido') content = <ContentAdmin />
   if (isAdmin && section === 'cazadores') content = <PeopleAdmin onOpenMessages={() => setSection('mensajes')} />
-  if (isAdmin && section === 'contacto') content = <ContactAdmin />
   if (section === 'mensajes') {
     content = (
       <div>
@@ -169,6 +174,7 @@ export default function Dashboard() {
     )
   }
   if (!isAdmin && section === 'guias') content = <Guides />
+  if (!isAdmin && section === 'donaciones') content = <Donations />
   if (section === 'perfil') {
     content = (
       <div>

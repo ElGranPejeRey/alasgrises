@@ -63,7 +63,6 @@ const GROUPS = [
       ['contact_title', 'Título', false],
       ['contact_text', 'Texto', true],
       ['contact_email', 'Correo', false],
-      ['discord_url', 'Enlace de Discord', false],
       ['footer_text', 'Frase del footer', true],
     ],
   },

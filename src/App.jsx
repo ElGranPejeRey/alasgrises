@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import AuthModal from './components/AuthModal'
 import ChatWidget from './components/ChatWidget'
+import DiscordButton from './components/DiscordButton'
 import Footer from './components/Footer'
 import Navbar from './components/Navbar'
 import { AuthProvider } from './context/AuthContext'
@@ -49,6 +50,7 @@ function Shell() {
       </Routes>
       {!dashboard ? <Footer /> : null}
       <AuthModal />
+      <DiscordButton />
       <ChatWidget />
       <SchemaBanner />
     </>

@@ -7,6 +7,7 @@ export const DEFAULTS = {
     'Bienvenidos, viajeros, guerreros y aventureros.\n\nAlas Grises nace como un espacio para quienes comparten la pasión por los mundos de fantasía, las grandes batallas y las aventuras que hacen de cada partida una experiencia memorable.\n\nSomos una comunidad de jugadores que busca mucho más que conquistar desafíos: queremos compartir experiencias, aprender unos de otros, formar nuevas amistades y construir un lugar donde todos puedan sentirse parte de algo.\n\nCreemos que un buen gremio no se mide únicamente por su poder, nivel o logros, sino también por las personas que lo conforman. Por eso, promovemos el respeto, la colaboración, la buena convivencia y el compañerismo.\n\nAquí cada integrante tiene un lugar, cada aporte cuenta y siempre habrá alguien dispuesto a echar una mano. No importa si eres un veterano de mil batallas o si recién comienzas tu aventura: lo importante es tener ganas de compartir y disfrutar el camino.',
   contact_email: '',
   discord_url: '',
+  paypal_url: '',
   footer_text: 'La ceniza cubre el filo, no el pacto. Santuario no perdona, y nosotros no nos soltamos.',
   about_quote: 'Lo importante es tener ganas de compartir y disfrutar el camino.',
   philosophy_title: '🛡️ Nuestra filosofía',
@@ -123,6 +124,44 @@ export function text(settings, key) {
   if (typeof value === 'string' && value.trim()) return value
   if (NARRATIVE.has(key)) return DEFAULTS[key]
   return ''
+}
+
+const DISCORD_HOSTS = new Set(['discord.gg', 'discord.com', 'discordapp.com'])
+
+export function discordUrl(value) {
+  const raw = String(value || '').trim()
+  if (!raw) return ''
+  const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
+  let url
+  try {
+    url = new URL(withProtocol)
+  } catch {
+    return null
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') return null
+  const host = url.hostname.toLowerCase().replace(/^www\./, '')
+  const allowed = DISCORD_HOSTS.has(host) || host.endsWith('.discord.com') || host.endsWith('.discord.gg')
+  if (!allowed) return null
+  return url.toString()
+}
+
+const PAYPAL_HOSTS = new Set(['paypal.com', 'paypal.me'])
+
+export function paypalUrl(value) {
+  const raw = String(value || '').trim()
+  if (!raw) return ''
+  const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
+  let url
+  try {
+    url = new URL(withProtocol)
+  } catch {
+    return null
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') return null
+  const host = url.hostname.toLowerCase().replace(/^www\./, '')
+  const allowed = PAYPAL_HOSTS.has(host) || host.endsWith('.paypal.com') || host.endsWith('.paypal.me')
+  if (!allowed) return null
+  return url.toString()
 }
 
 export const CATEGORIES = [
