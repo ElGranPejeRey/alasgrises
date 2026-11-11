@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import ChatPanel from '../components/ChatPanel'
 import Donations from '../components/Donations'
 import Guides from '../components/Guides'
+import SanctuaryMap from '../components/SanctuaryMap'
 import { Badge, Button, Field, Frame, ScreenLoader, SelectField } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
@@ -22,6 +23,7 @@ import VideoAdmin from './admin/VideoAdmin'
 const ADMIN_ITEMS = [
   ['resumen', 'Resumen'],
   ['perfil', 'Perfil'],
+  ['mapa', 'Mapa'],
   ['guias', 'Guías'],
   ['videos', 'Videos'],
   ['fotos', 'Fotos'],
@@ -36,6 +38,7 @@ const ADMIN_ITEMS = [
 const USER_ITEMS = [
   ['guias', 'Guías'],
   ['perfil', 'Perfil'],
+  ['mapa', 'Mapa'],
   ['donaciones', 'Donaciones'],
   ['mensajes', 'Mensajes'],
 ]
@@ -173,6 +176,7 @@ export default function Dashboard() {
       </div>
     )
   }
+  if (section === 'mapa') content = <SanctuaryMap />
   if (!isAdmin && section === 'guias') content = <Guides />
   if (!isAdmin && section === 'donaciones') content = <Donations />
   if (section === 'perfil') {
@@ -238,9 +242,11 @@ export default function Dashboard() {
     )
   }
 
+  const mapScreen = section === 'mapa'
+
   return (
-    <div className="min-h-screen bg-ash">
-      <header className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3 sm:px-6">
+    <div className={mapScreen ? 'flex h-dvh flex-col overflow-hidden bg-ash' : 'min-h-screen bg-ash'}>
+      <header className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-4 py-3 sm:px-6">
         <Link to="/" className="min-w-0">
           <img src="/img/Emblema%20Alas%20Grises.png" alt="Alas Grises" className="h-12 w-12 object-contain" />
         </Link>
@@ -252,8 +258,8 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <div className="md:grid md:grid-cols-[230px_minmax(0,1fr)]">
-        <nav className="sticky top-0 hidden h-fit flex-col gap-1 border-r border-white/10 p-4 md:flex" aria-label="Panel">
+      <div className={mapScreen ? 'grid min-h-0 flex-1 md:grid-cols-[230px_minmax(0,1fr)]' : 'md:grid md:grid-cols-[230px_minmax(0,1fr)]'}>
+        <nav className={mapScreen ? 'hidden min-h-0 flex-col gap-1 overflow-y-auto border-r border-white/10 p-4 md:flex' : 'sticky top-0 hidden h-fit flex-col gap-1 border-r border-white/10 p-4 md:flex'} aria-label="Panel">
           {items.map(([id, label]) => (
             <button
               key={id}
@@ -270,8 +276,8 @@ export default function Dashboard() {
           <Link to="/" className="mt-6 px-3 text-xs uppercase tracking-[0.16em] text-mute hover:text-white">Volver al sitio</Link>
         </nav>
 
-        <div>
-          <div className="flex gap-2 overflow-x-auto border-b border-white/10 px-3 py-3 md:hidden">
+        <div className={mapScreen ? 'flex min-h-0 flex-col' : undefined}>
+          <div className="flex shrink-0 gap-2 overflow-x-auto border-b border-white/10 px-3 py-3 md:hidden">
             {items.map(([id, label]) => (
               <button
                 key={id}
@@ -286,8 +292,8 @@ export default function Dashboard() {
               </button>
             ))}
           </div>
-          <div className="px-4 py-6 sm:px-6 sm:py-8">
-            {!isAdmin && section !== 'perfil' ? (
+          <div className={mapScreen ? 'min-h-0 flex-1' : 'px-4 py-6 sm:px-6 sm:py-8'}>
+            {!isAdmin && section !== 'perfil' && section !== 'mapa' ? (
               <button type="button" className="mb-6 block w-full text-left" onClick={() => setSection('perfil')}>
                 <Frame className="flex flex-col gap-4 p-4 transition hover:border-[#ff4536]/50 sm:flex-row sm:items-center sm:justify-between">
                   <HunterIdentity username={username || profile.username} avatar={avatar} d4Class={d4Class} battletag={battletag} />

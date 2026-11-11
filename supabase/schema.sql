@@ -53,6 +53,7 @@ create table if not exists public.videos (
 create table if not exists public.streamers (
   id uuid primary key default gen_random_uuid(),
   name text not null,
+  platform text not null default 'twitch',
   twitch_login text not null,
   twitch_url text not null,
   sort_order integer not null default 0,
@@ -61,8 +62,9 @@ create table if not exists public.streamers (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint streamers_name_len check (char_length(name) between 2 and 40),
-  constraint streamers_login_chk check (twitch_login ~ '^[a-z0-9_]{3,25}$'),
-  constraint streamers_login_unique unique (twitch_login)
+  constraint streamers_platform_chk check (platform in ('twitch', 'kick', 'youtube')),
+  constraint streamers_login_chk check (twitch_login ~ '^[A-Za-z0-9_.-]{2,80}$'),
+  constraint streamers_platform_login_unique unique (platform, twitch_login)
 );
 
 create table if not exists public.photos (

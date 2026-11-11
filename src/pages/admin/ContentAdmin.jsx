@@ -51,7 +51,7 @@ const GROUPS = [
   },
   {
     title: 'Streaming',
-    note: 'Aquí solo cambias el título y el texto de la sección. Los nombres y los enlaces de Twitch se administran en Streaming.',
+    note: 'Aquí solo cambias el título y el texto de la sección. Los canales de Twitch, Kick y YouTube se administran en Streaming.',
     fields: [
       ['streaming_title', 'Título', false],
       ['streaming_text', 'Texto', true],

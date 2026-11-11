@@ -1,32 +1,46 @@
 import { useEffect, useState } from 'react'
 import { parseStreamers, text } from '../lib/defaults'
 import { cx, missingTable } from '../lib/format'
+import { streamLabel, streamPlatform, streamPresence } from '../lib/streams'
 import { supabase } from '../lib/supabase'
 import { Empty, SectionHeading } from './ui'
 
 export default function Streaming({ settings }) {
   const [people, setPeople] = useState([])
-  const [live, setLive] = useState({})
-  const [avatars, setAvatars] = useState({})
+  const [presence, setPresence] = useState({})
   const [watch, setWatch] = useState(null)
-  const logins = people.map((person) => person.login).join('\n')
+  const roster = people.map((person) => `${person.platform}:${person.login}`).join('\n')
 
   useEffect(() => {
     let cancel = false
 
     async function load() {
-      const { data, error } = await supabase
+      const columns = 'id,name,twitch_login,platform'
+      let result = await supabase
         .from('streamers')
-        .select('id,name,twitch_login')
+        .select(columns)
         .eq('published', true)
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: true })
+      if (result.error && missingTable(result.error) && /platform/i.test(result.error.message || '')) {
+        result = await supabase
+          .from('streamers')
+          .select('id,name,twitch_login')
+          .eq('published', true)
+          .order('sort_order', { ascending: true })
+          .order('created_at', { ascending: true })
+      }
       if (cancel) return
-      if (error) {
-        if (missingTable(error)) setPeople(parseStreamers(text(settings, 'streamers')))
+      if (result.error) {
+        if (missingTable(result.error)) setPeople(parseStreamers(text(settings, 'streamers')).map((person) => ({ ...person, platform: 'twitch', id: person.login })))
         return
       }
-      setPeople((data || []).map((row) => ({ id: row.id, name: row.name, login: row.twitch_login })))
+      setPeople((result.data || []).map((row) => ({
+        id: row.id,
+        name: row.name,
+        login: row.twitch_login,
+        platform: streamPlatform(row.platform),
+      })))
     }
 
     load()
@@ -46,40 +60,17 @@ export default function Streaming({ settings }) {
     let cancel = false
 
     async function check() {
-      const entries = await Promise.all(listed.map(async (person) => {
-        try {
-          const response = await fetch(`https://decapi.me/twitch/uptime/${encodeURIComponent(person.login)}`)
-          const body = (await response.text()).toLowerCase()
-          const online = response.ok && body.length > 0 && !body.includes('offline') && !body.includes('not found') && !body.includes('does not exist')
-          return [person.login, online]
-        } catch {
-          return [person.login, false]
-        }
-      }))
-      if (!cancel) setLive(Object.fromEntries(entries))
-    }
-
-    async function loadAvatars() {
-      const entries = await Promise.all(listed.map(async (person) => {
-        try {
-          const response = await fetch(`https://decapi.me/twitch/avatar/${encodeURIComponent(person.login)}`)
-          const url = (await response.text()).trim()
-          return [person.login, response.ok && url.startsWith('https://') ? url : '']
-        } catch {
-          return [person.login, '']
-        }
-      }))
-      if (!cancel) setAvatars(Object.fromEntries(entries))
+      const entries = await Promise.all(listed.map(async (person) => [person.id, await streamPresence(person)]))
+      if (!cancel) setPresence(Object.fromEntries(entries))
     }
 
     check()
-    loadAvatars()
     const timer = window.setInterval(check, 60000)
     return () => {
       cancel = true
       window.clearInterval(timer)
     }
-  }, [logins])
+  }, [roster])
 
   useEffect(() => {
     if (!watch) return undefined
@@ -112,25 +103,31 @@ export default function Streaming({ settings }) {
         ) : (
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {people.map((person) => {
-              const online = Boolean(live[person.login])
-              const avatar = avatars[person.login]
+              const status = presence[person.id] || {}
+              const online = Boolean(status.online)
+              const preview = playerSrc(person, status, parent, false)
+              const service = serviceName(person.platform)
               return (
                 <article
-                  key={person.login}
+                  key={person.id}
                   className={cx(
                     'overflow-hidden border border-white/10 bg-[#12090b]/85',
                     online && 'hover:border-emerald-400/70',
                   )}
                 >
                   <div className="relative aspect-video bg-black">
-                    <iframe
-                      src={`https://player.twitch.tv/?channel=${encodeURIComponent(person.login)}&parent=${encodeURIComponent(parent)}&muted=true&autoplay=false`}
-                      title={`Perfil de ${person.name} en Twitch`}
-                      className="absolute inset-0 h-full w-full"
-                      allow="fullscreen"
-                      allowFullScreen
-                      loading="lazy"
-                    />
+                    {preview ? (
+                      <iframe
+                        src={preview}
+                        title={`Perfil de ${person.name} en ${service}`}
+                        className="absolute inset-0 h-full w-full"
+                        allow="fullscreen"
+                        allowFullScreen
+                        loading="lazy"
+                      />
+                    ) : status.thumbnail ? (
+                      <img src={status.thumbnail} alt="" className="absolute inset-0 h-full w-full object-cover opacity-80" />
+                    ) : null}
                     {online ? (
                       <button
                         type="button"
@@ -141,8 +138,8 @@ export default function Streaming({ settings }) {
                     ) : null}
                   </div>
                   <div className="relative flex items-center gap-3 px-4 py-4">
-                    {avatar ? (
-                      <img src={avatar} alt="" className="h-14 w-14 shrink-0 rounded-full border border-white/15 object-cover" />
+                    {status.avatar ? (
+                      <img src={status.avatar} alt="" className="h-14 w-14 shrink-0 rounded-full border border-white/15 object-cover" />
                     ) : (
                       <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full border border-white/15 bg-black/40 font-display text-xl text-silver">
                         {person.name.slice(0, 1)}
@@ -150,7 +147,7 @@ export default function Streaming({ settings }) {
                     )}
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-display text-2xl text-silver">{person.name}</p>
-                      <p className="truncate text-sm text-mute">twitch.tv/{person.login}</p>
+                      <p className="truncate text-sm text-mute">{streamLabel(person.platform, person.login)}</p>
                     </div>
                     <button
                       type="button"
@@ -180,14 +177,14 @@ export default function Streaming({ settings }) {
             <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
               <div>
                 <p className="font-display text-xl text-silver">{watch.name}</p>
-                <p className="text-xs uppercase tracking-[0.16em] text-emerald-300">En vivo en Twitch</p>
+                <p className="text-xs uppercase tracking-[0.16em] text-emerald-300">En vivo en {serviceName(watch.platform)}</p>
               </div>
               <button type="button" className="px-3 py-2 text-xs uppercase tracking-[0.16em] text-steel hover:text-white" onClick={() => setWatch(null)}>
                 Cerrar
               </button>
             </div>
             <iframe
-              src={`https://player.twitch.tv/?channel=${encodeURIComponent(watch.login)}&parent=${encodeURIComponent(parent)}&autoplay=true`}
+              src={playerSrc(watch, presence[watch.id], parent, true)}
               title={`Transmisión de ${watch.name}`}
               className="aspect-video w-full"
               allow="autoplay; fullscreen"
@@ -198,4 +195,22 @@ export default function Streaming({ settings }) {
       ) : null}
     </section>
   )
+}
+
+function serviceName(platform) {
+  if (platform === 'kick') return 'Kick'
+  if (platform === 'youtube') return 'YouTube'
+  return 'Twitch'
+}
+
+function playerSrc(person, status, parent, autoplay) {
+  const platform = person.platform || 'twitch'
+  if (platform === 'kick') {
+    return `https://player.kick.com/${encodeURIComponent(person.login)}?muted=${autoplay ? 'false' : 'true'}&autoplay=${autoplay ? 'true' : 'false'}`
+  }
+  if (platform === 'youtube') {
+    if (!status?.embed) return ''
+    return `${status.embed}?autoplay=${autoplay ? 1 : 0}&mute=${autoplay ? 0 : 1}`
+  }
+  return `https://player.twitch.tv/?channel=${encodeURIComponent(person.login)}&parent=${encodeURIComponent(parent)}&muted=${autoplay ? 'false' : 'true'}&autoplay=${autoplay ? 'true' : 'false'}`
 }
